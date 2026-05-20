@@ -1,0 +1,39 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Python
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/**/*.pyo
+backend/.env
+backend/*.egg-info/
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+frontend/.env
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
+
+#environment file
+.env
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Worktrees
+.worktrees/
+
+# Misc
+*.log
+dist/
+build/
