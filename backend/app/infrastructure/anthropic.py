@@ -5,6 +5,7 @@ import json
 from typing import Any
 
 import anthropic
+import httpx
 
 from app.config import get_settings
 
@@ -19,7 +20,15 @@ def get_client() -> anthropic.AsyncAnthropic:
     global _client
     if _client is None:
         settings = get_settings()
-        _client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+        # Explicitly pass an httpx client with verify=False so the Anthropic SDK
+        # honours the corporate TLS-inspection proxy (same reason ssl_patch.py
+        # exists).  The SDK's internal AsyncHttpxClientWrapper is NOT patched by
+        # ssl_patch, so we must inject the setting here directly.
+        http_client = httpx.AsyncClient(verify=False)
+        _client = anthropic.AsyncAnthropic(
+            api_key=settings.anthropic_api_key,
+            http_client=http_client,
+        )
     return _client
 
 
