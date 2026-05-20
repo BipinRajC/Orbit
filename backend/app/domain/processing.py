@@ -2,12 +2,13 @@
 Pipeline orchestration — the full DAG from URL to ready_for_review.
 
 Stages:
-  1. INGEST    — detect input type, fetch audio or transcript
+  1. INGEST     — detect input type, fetch audio or transcript
   2. TRANSCRIBE — Groq Whisper → timestamped segments
-  3. RECALL    — Hindsight recall() + reflect() → memory context
-  4. EXTRACT   — cascadeflow → 3-5 strongest moments
-  5. GENERATE  — per-moment: hooks + tweets + framing (parallel)
-  6. PERSIST   — write moments + derivatives to Supabase
+  3. RECALL     — Hindsight recall() + reflect() → memory context
+  4. EXTRACT    — Claude Haiku 4.5 → 3-5 narrative-aware moments
+  5. CLIP       — yt-dlp + ffmpeg → 9:16 vertical MP4 files (parallel)
+  6. GENERATE   — Claude Sonnet 4.5 → per-platform production briefs
+  7. PERSIST    — moments + clips + derivatives to Supabase
 """
 from __future__ import annotations
 
@@ -16,15 +17,16 @@ import traceback
 from datetime import datetime, timezone
 from typing import Any
 
-from app.infrastructure.cascadeflow import CostAccumulator
 from app.infrastructure.hindsight import recall_memories, reflect_on_creator
 from app.infrastructure.supabase import (
     insert_derivatives,
     insert_moments,
+    update_moment_clip,
     update_project_status,
 )
 from app.infrastructure.transcription import compute_duration, transcribe
 from app.infrastructure.youtube import fetch_audio, fetch_transcript_from_youtube
+from app.infrastructure.clip_extraction import extract_clips_parallel
 from app.domain.moments import extract_moments
 from app.domain.generation import generate_derivatives_for_moment
 
@@ -37,13 +39,13 @@ def _log(stage: str, message: str) -> dict[str, Any]:
     }
 
 
-async def run_pipeline(project_id: str) -> None:
+async def run_pipeline(project_id: str, target_platforms: list[str] | None = None) -> None:
     """
     Full processing pipeline. Called as a FastAPI background task.
     Updates project status at each stage so the frontend can poll progress.
     """
-    cost_acc = CostAccumulator()
     audio_path: str | None = None
+    cost_usd: float = 0.0
 
     try:
         # ------------------------------------------------------------------ #
@@ -55,12 +57,20 @@ async def run_pipeline(project_id: str) -> None:
             log_entry=_log("ingest", "Fetching audio from YouTube..."),
         )
 
-        # Try captions first (faster) — fall back to Whisper
         from app.infrastructure.supabase import _db
-        proj = _db().table("content_projects").select("source_url").eq(
-            "id", project_id
-        ).single().execute()
+        proj = _db().table("content_projects").select(
+            "source_url, target_platforms"
+        ).eq("id", project_id).single().execute()
         source_url: str = proj.data["source_url"]
+
+        # Resolve platforms: argument > DB column > config default
+        if target_platforms is None:
+            db_platforms = proj.data.get("target_platforms")
+            if db_platforms:
+                target_platforms = db_platforms
+            else:
+                from app.config import get_settings
+                target_platforms = get_settings().default_platforms
 
         segments, title = await fetch_transcript_from_youtube(source_url)
 
@@ -107,10 +117,10 @@ async def run_pipeline(project_id: str) -> None:
         )
 
         recall_result = await recall_memories(
-            query="How does this creator prefer their content? Hook styles, tweet style, editing preferences."
+            query="How does this creator prefer their content? Hook styles, editing preferences."
         )
         reflection = await reflect_on_creator(
-            query="Summarise this creator's content preferences, voice, and style for generating hooks and tweets."
+            query="Summarise this creator's content preferences, voice, and style."
         )
 
         memory_context = {
@@ -131,17 +141,16 @@ async def run_pipeline(project_id: str) -> None:
         )
 
         # ------------------------------------------------------------------ #
-        # STAGE 4: EXTRACT moments
+        # STAGE 4: EXTRACT moments (Claude Haiku 4.5)
         # ------------------------------------------------------------------ #
         await update_project_status(
             project_id,
-            log_entry=_log("extract", "Identifying strongest moments with cascadeflow..."),
+            log_entry=_log("extract", "Identifying strongest moments with Claude Haiku..."),
         )
 
         moments = await extract_moments(
             segments=segments,
             memory_reflection=reflection,
-            cost_acc=cost_acc,
         )
 
         await update_project_status(
@@ -149,54 +158,98 @@ async def run_pipeline(project_id: str) -> None:
             log_entry=_log("extract", f"Found {len(moments)} strong moments"),
         )
 
+        # Persist moments first so we have IDs for clip extraction
+        db_moments = await insert_moments(project_id, moments)
+
         # ------------------------------------------------------------------ #
-        # STAGE 5: GENERATE derivatives (parallel per moment)
+        # STAGE 5: CLIP — extract 9:16 vertical MP4 files (parallel)
         # ------------------------------------------------------------------ #
         await update_project_status(
             project_id,
-            log_entry=_log("generate", f"Generating production briefs (3 platforms) for {len(moments)} moments..."),
+            log_entry=_log("clip", f"Extracting {len(db_moments)} vertical clips..."),
         )
 
-        db_moments = await insert_moments(project_id, moments)
+        clip_results = await extract_clips_parallel(
+            project_id=project_id,
+            source_url=source_url,
+            moments=db_moments,
+        )
 
-        # Process moments sequentially to avoid Groq rate limits
-        # (each moment still runs its 3 derivative calls in parallel)
-        for db_moment in db_moments:
-            derivatives = await generate_derivatives_for_moment(
+        clips_ok = sum(1 for v in clip_results.values() if v is not None)
+        clips_fail = len(clip_results) - clips_ok
+
+        # Persist clip_url back to each moment
+        for moment_id, clip_path in clip_results.items():
+            if clip_path:
+                clip_url = f"/api/clips/{project_id}/{moment_id}.mp4"
+                await update_moment_clip(moment_id, clip_url)
+
+        await update_project_status(
+            project_id,
+            log_entry=_log(
+                "clip",
+                f"Clips extracted: {clips_ok} ok"
+                + (f", {clips_fail} failed (YT embed fallback)" if clips_fail else ""),
+            ),
+        )
+
+        # ------------------------------------------------------------------ #
+        # STAGE 6: GENERATE derivatives (Claude Sonnet 4.5, concurrent)
+        # ------------------------------------------------------------------ #
+        platforms_str = ", ".join(target_platforms)
+        await update_project_status(
+            project_id,
+            log_entry=_log(
+                "generate",
+                f"Generating briefs for {len(db_moments)} moments × {platforms_str}...",
+            ),
+        )
+
+        # Re-fetch moments to get clip_url populated
+        from app.infrastructure.supabase import _db as _db2
+        refreshed_moments_res = _db2().table("moments").select("*").eq(
+            "project_id", project_id
+        ).order("sort_order").execute()
+        refreshed_moments = refreshed_moments_res.data or db_moments
+
+        gen_tasks = [
+            generate_derivatives_for_moment(
                 project_id=project_id,
-                moment=db_moment,
+                moment=m,
                 memory_reflection=reflection,
-                cost_acc=cost_acc,
+                target_platforms=target_platforms,
             )
+            for m in refreshed_moments
+        ]
+        all_derivatives = await asyncio.gather(*gen_tasks)
+
+        for db_moment, derivatives in zip(refreshed_moments, all_derivatives):
             await insert_derivatives(project_id, db_moment["id"], derivatives)
 
         # ------------------------------------------------------------------ #
-        # STAGE 6: FINALISE
+        # STAGE 7: FINALISE
         # ------------------------------------------------------------------ #
-        cost_dict = cost_acc.to_dict()
         await update_project_status(
             project_id,
             status="ready_for_review",
             log_entry=_log(
                 "complete",
-                f"Pipeline complete — {cost_dict['total_calls']} LLM calls, "
-                f"{cost_dict['drafter_pct']}% handled by fast model, "
-                f"cost: ${cost_dict['total_cost_usd']:.4f}",
+                f"Pipeline complete — {len(refreshed_moments)} moments, "
+                f"{clips_ok} clips, {len(target_platforms)} platforms",
             ),
-            cost_log=cost_dict,
+            cost_log={"total_cost_usd": cost_usd},
         )
 
     except Exception as exc:
         tb = traceback.format_exc()
         await update_project_status(
             project_id,
-            status="processing",   # keep as processing so UI shows error in log
+            status="processing",
             log_entry=_log("error", f"Pipeline failed: {exc}\n{tb[:500]}"),
-            cost_log=cost_acc.to_dict(),
+            cost_log={"total_cost_usd": cost_usd},
         )
         raise
     finally:
-        # Clean up downloaded audio temp file
         if audio_path:
             import os
             import shutil
