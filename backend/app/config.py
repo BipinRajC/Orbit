@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     cascade_drafter_model: str = "llama-3.1-8b-instant"
     cascade_verifier_model: str = "llama-3.3-70b-versatile"
 
+    # Anthropic
+    anthropic_api_key: str = ""
+
+    # Clip storage
+    clip_storage_path: str = "/app/clips"
+    default_platforms: list[str] = ["instagram_reels", "youtube_shorts", "linkedin"]
+
 
 @lru_cache
 def get_settings() -> Settings:
