@@ -2,8 +2,8 @@
 
 export type ProjectStatus = 'uploaded' | 'processing' | 'ready_for_review' | 'archived'
 export type DerivativeStatus = 'draft' | 'approved' | 'rejected'
-export type Platform = 'short_form_video' | 'twitter' | 'instagram_reels' | 'youtube_shorts' | 'linkedin'
-export type ContentType = 'hook' | 'caption' | 'tweet' | 'framing' | 'production_brief'
+export type Platform = 'instagram_reels' | 'youtube_shorts' | 'linkedin'
+export type ContentType = 'production_brief'
 
 export interface ProcessingLogEntry {
   stage: string
@@ -12,12 +12,13 @@ export interface ProcessingLogEntry {
 }
 
 export interface CostLog {
-  total_calls: number
-  drafter_calls: number
-  verifier_calls: number
-  drafter_pct: number
   total_cost_usd: number
-  estimated_savings_usd: number
+  // Legacy cascadeflow fields
+  total_calls?: number
+  drafter_calls?: number
+  verifier_calls?: number
+  drafter_pct?: number
+  estimated_savings_usd?: number
 }
 
 export interface MemoryContext {
@@ -28,11 +29,26 @@ export interface MemoryContext {
   available?: boolean
 }
 
+export interface Segment {
+  start: number
+  end: number
+  role: 'primary' | 'payoff' | 'bridge'
+}
+
+/** Structured production brief — stored as JSON string in derivative.content */
+export interface ProductionScript {
+  opening: string
+  body: string
+  closer: string
+}
+
 export interface ProductionBrief {
   hook: string
-  body: string
+  angle: string
+  script: ProductionScript
   cta: string
   higgsfield_prompt: string
+  editing_notes: string
 }
 
 export interface Derivative {
@@ -41,7 +57,7 @@ export interface Derivative {
   project_id: string
   platform: Platform
   content_type: ContentType
-  content: string
+  content: string  // JSON string of ProductionBrief
   status: DerivativeStatus
   generation_model: string | null
   created_at: string
@@ -56,6 +72,10 @@ export interface Moment {
   transcript_snippet: string
   strength_score: number
   selection_rationale: string
+  narrative_summary: string | null
+  hook_potential: string | null
+  segments: Segment[] | null
+  clip_url: string | null
   sort_order: number
   created_at: string
   derivatives: Derivative[]
@@ -70,6 +90,7 @@ export interface Project {
   processing_log: ProcessingLogEntry[]
   cost_log: CostLog | Record<string, never>
   memory_context: MemoryContext | Record<string, never>
+  target_platforms: Platform[]
   created_at: string
   updated_at: string
   moments: Moment[]
