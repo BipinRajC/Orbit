@@ -1,3 +1,6 @@
+import asyncio
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -24,10 +27,23 @@ app.add_middleware(
 
 app.include_router(router, prefix="/api")
 
+logger = logging.getLogger("contentos")
+
+
+def _handle_async_exception(loop: asyncio.AbstractEventLoop, context: dict) -> None:
+    """Suppress non-critical background task SSL errors (e.g. hindsight _acreate_bank)."""
+    exc = context.get("exception")
+    msg = str(exc) if exc else context.get("message", "")
+    if "SSL" in msg or "ssl" in msg or "certificate" in msg.lower():
+        logger.debug("Suppressed background SSL error: %s", msg)
+        return
+    loop.default_exception_handler(context)
+
 
 @app.on_event("startup")
 async def startup_event() -> None:
     """Initialize external services on startup."""
+    asyncio.get_event_loop().set_exception_handler(_handle_async_exception)
     await init_supabase()
     await init_memory_bank()
 

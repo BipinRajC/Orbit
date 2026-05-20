@@ -10,9 +10,15 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Supabase
+    # Supabase — accepts SUPABASE_API_KEY or SUPABASE_SERVICE_ROLE_KEY
     supabase_url: str = ""
+    supabase_api_key: str = ""
     supabase_service_role_key: str = ""
+
+    @property
+    def supabase_key(self) -> str:
+        """Return whichever key is provided."""
+        return self.supabase_service_role_key or self.supabase_api_key
 
     # Groq
     groq_api_key: str = ""
