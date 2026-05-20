@@ -17,23 +17,34 @@ from app.infrastructure.supabase import (
 
 SYNTHESIS_SYSTEM = """\
 You are analysing a content creator's editing behaviour from their review session.
-Your job is to extract concise, actionable observations about their preferences.
+Extract concise, actionable observations in THREE categories:
 
-Focus on:
-- How they modified language (shortened? softened? made punchier? removed filler words?)
-- What they rejected vs approved (hook styles? platforms? lengths? tones?)
-- Any patterns in what worked vs what didn't
-- Voice characteristics (formal/casual, direct/hedged, punchy/elaborate)
+1. STYLE OBSERVATIONS — patterns about how they write:
+   - How they modified language (shortened? softened? punchier? removed filler?)
+   - What they approved vs rejected (hook styles, tones, lengths, platforms)
+   - Voice characteristics (formal/casual, direct/hedged, punchy/elaborate)
 
-Return ONLY a JSON array of 2-5 observation strings.
-Each observation must be a single sentence that can inform future content generation.
+2. VOICE EXAMPLES — verbatim phrases from content they approved or edited to:
+   - Pull 1-2 actual sentences that exemplify their writing style
+   - Format: 'Voice example: "[exact phrase from their approved/edited content]"'
+   - These give future generation a concrete target to match
+
+3. NEGATIVE PATTERNS — specific things they removed, rewrote, or rejected:
+   - Specific words, phrases, or structures they avoided
+   - Format: 'Never use: [specific pattern] — creator [rejected/rewrote away from] this'
+   - Be specific (exact words/phrases), not abstract
+
+Return ONLY a JSON array of 3-7 observation strings mixing all three types.
+Each observation must be a single sentence.
 No markdown, no explanation outside the JSON array.
 
 Example:
 [
-  "Creator consistently shortens tweets by removing filler phrases.",
-  "Creator approves question-style hooks and rejects aggressive clickbait.",
-  "Creator prefers direct, first-person statements over passive constructions."
+  "Creator shortens tweets by cutting filler — removes 'honestly', 'basically', 'the truth is'.",
+  "Creator approves question-style hooks and rejects aggressive clickbait openers.",
+  "Voice example: 'Most people get this backwards — here is why.'",
+  "Never use: hooks starting with 'Stop doing X' or 'You need to...' — creator consistently rejects these.",
+  "Creator prefers direct first-person statements over passive or hedged constructions."
 ]
 """
 
@@ -88,16 +99,22 @@ def _build_events_summary(events: list[dict[str, Any]]) -> str:
         if event_type == "edit" and before and after:
             lines.append(
                 f"EDIT [{platform}/{content_type}]\n"
-                f'  Before: "{before[:150]}"\n'
-                f'  After:  "{after[:150]}"'
+                f'  Before: "{before[:200]}"\n'
+                f'  After:  "{after[:200]}"'
             )
         elif event_type == "approve":
-            lines.append(f"APPROVED [{platform}/{content_type}]")
+            content = (before or after or "")[:200]
+            snippet = f'\n  Approved content: "{content}"' if content else ""
+            lines.append(f"APPROVED [{platform}/{content_type}]{snippet}")
         elif event_type == "reject":
-            lines.append(f"REJECTED [{platform}/{content_type}]")
+            content = (before or after or "")[:200]
+            snippet = f'\n  Rejected content: "{content}"' if content else ""
+            lines.append(f"REJECTED [{platform}/{content_type}]{snippet}")
         elif event_type == "regenerate":
+            content = (before or "")[:150]
             note = f' with guidance: "{guidance}"' if guidance else ""
-            lines.append(f"REGENERATED [{platform}/{content_type}]{note}")
+            snippet = f'\n  Original content: "{content}"' if content else ""
+            lines.append(f"REGENERATED [{platform}/{content_type}]{note}{snippet}")
 
     return "\n\n".join(lines)
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { UploadInput } from '@/components/upload-input'
 import { ProjectCard } from '@/components/project-card'
+import { CreatorProfileModal } from '@/components/creator-profile-modal'
 import { api } from '@/lib/api'
 import type { ProjectListItem } from '@/lib/types'
 
@@ -11,6 +12,7 @@ export default function HomePage() {
   const router = useRouter()
   const [projects, setProjects] = useState<ProjectListItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [showProfileModal, setShowProfileModal] = useState(false)
 
   async function fetchProjects() {
     try {
@@ -25,6 +27,18 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchProjects()
+
+    // Show profile modal if not completed yet
+    const done = localStorage.getItem('creator_profile_done')
+    if (!done) {
+      // Check server-side too (in case they used a different browser)
+      api.profile.status().then(res => {
+        if (!res.has_profile) setShowProfileModal(true)
+        else localStorage.setItem('creator_profile_done', '1')
+      }).catch(() => {
+        if (!done) setShowProfileModal(true)
+      })
+    }
   }, [])
 
   function handleProjectCreated(id: string) {
@@ -33,6 +47,10 @@ export default function HomePage() {
 
   return (
     <div>
+      {showProfileModal && (
+        <CreatorProfileModal onComplete={() => setShowProfileModal(false)} />
+      )}
+
       {/* Hero */}
       <div className="mb-10">
         <h1 className="text-2xl font-semibold text-zinc-900">

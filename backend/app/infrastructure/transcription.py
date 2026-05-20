@@ -98,7 +98,7 @@ async def _transcribe_chunked(audio_path: str) -> list[dict]:
     return all_segments
 
 
-def format_transcript_for_prompt(segments: list[dict], max_chars: int = 12000) -> str:
+def format_transcript_for_prompt(segments: list[dict], max_chars: int = 60000) -> str:
     """Format transcript segments as a readable string for LLM prompts."""
     lines = []
     total = 0

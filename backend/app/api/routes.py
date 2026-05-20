@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 
 from app.api.schemas import (
     CreateProjectRequest,
+    CreatorProfileRequest,
     DerivativeResponse,
     EditingEventPayload,
     ProjectListItem,
@@ -25,6 +26,7 @@ from app.infrastructure.supabase import (
     update_derivative_status,
     record_editing_event,
 )
+from app.infrastructure.hindsight import retain_observation, recall_memories
 from app.domain.generation import regenerate_single_derivative
 from app.domain.memory import synthesize_and_store_observations
 from app.config import get_settings
@@ -46,7 +48,8 @@ async def create_new_project(
     platforms = body.target_platforms or settings.default_platforms
 
     project = await create_project(source_url=body.url, target_platforms=platforms)
-    background_tasks.add_task(pipeline.run_pipeline, project["id"], platforms)
+    video_intent = body.video_intent.model_dump() if body.video_intent else None
+    background_tasks.add_task(pipeline.run_pipeline, project["id"], platforms, video_intent)
     return ProjectListItem(**{
         "id": project["id"],
         "status": project["status"],
@@ -82,6 +85,41 @@ async def complete_review(
         synthesize_and_store_observations, str(project_id)
     )
     return {"message": "Review synthesis started", "project_id": str(project_id)}
+
+
+# ---------------------------------------------------------------------------
+# Creator Profile
+# ---------------------------------------------------------------------------
+
+@router.post("/profile")
+async def save_creator_profile(body: CreatorProfileRequest) -> dict:
+    """Store creator profile as Hindsight memories (one-time onboarding)."""
+    observations = [
+        f"Creator profile — niche: {body.niche}",
+        f"Creator profile — primary platform: {body.platform}",
+        f"Creator profile — content style: {', '.join(body.styles)}",
+        f"Creator profile — target audience: {body.audience}",
+    ]
+    if body.never_use.strip():
+        observations.append(
+            f"Creator profile — never use in content: {body.never_use}"
+        )
+    for obs in observations:
+        await retain_observation(obs, tags=["creator-profile"])
+    return {"stored": len(observations)}
+
+
+@router.get("/profile/status")
+async def get_profile_status() -> dict:
+    """Check if creator profile has been set up."""
+    result = await recall_memories(
+        "creator profile niche platform style audience"
+    )
+    has_profile = any(
+        "creator profile" in item.lower()
+        for item in result.get("recall_items", [])
+    )
+    return {"has_profile": has_profile}
 
 
 # ---------------------------------------------------------------------------

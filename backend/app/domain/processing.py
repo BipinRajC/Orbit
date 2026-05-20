@@ -39,7 +39,7 @@ def _log(stage: str, message: str) -> dict[str, Any]:
     }
 
 
-async def run_pipeline(project_id: str, target_platforms: list[str] | None = None) -> None:
+async def run_pipeline(project_id: str, target_platforms: list[str] | None = None, video_intent: dict | None = None) -> None:
     """
     Full processing pipeline. Called as a FastAPI background task.
     Updates project status at each stage so the frontend can poll progress.
@@ -117,7 +117,15 @@ async def run_pipeline(project_id: str, target_platforms: list[str] | None = Non
         )
 
         recall_result = await recall_memories(
-            query="How does this creator prefer their content? Hook styles, editing preferences."
+            query=(
+                "How does this creator prefer their content? Hook styles, editing preferences."
+                + (
+                    f" The current video is about: {video_intent.get('topic', '')}."
+                    f" Creator goal: {video_intent.get('goal', '')}."
+                    if video_intent and (video_intent.get('topic') or video_intent.get('goal'))
+                    else ""
+                )
+            )
         )
         reflection = await reflect_on_creator(
             query="Summarise this creator's content preferences, voice, and style."
@@ -151,6 +159,7 @@ async def run_pipeline(project_id: str, target_platforms: list[str] | None = Non
         moments = await extract_moments(
             segments=segments,
             memory_reflection=reflection,
+            video_intent=video_intent,
         )
 
         await update_project_status(

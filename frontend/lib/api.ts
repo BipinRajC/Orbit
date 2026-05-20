@@ -2,6 +2,8 @@ import type {
   Project,
   ProjectListItem,
   Derivative,
+  VideoIntent,
+  CreatorProfile,
 } from './types'
 
 const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -24,10 +26,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   projects: {
-    create: (url: string, targetPlatforms?: string[]): Promise<ProjectListItem> =>
+    create: (url: string, targetPlatforms?: string[], videoIntent?: VideoIntent): Promise<ProjectListItem> =>
       request('/projects', {
         method: 'POST',
-        body: JSON.stringify({ url, target_platforms: targetPlatforms ?? null }),
+        body: JSON.stringify({ url, target_platforms: targetPlatforms ?? null, video_intent: videoIntent ?? null }),
       }),
 
     list: (): Promise<ProjectListItem[]> =>
@@ -58,5 +60,16 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ guidance: guidance ?? null }),
       }),
+  },
+
+  profile: {
+    save: (profile: CreatorProfile): Promise<{ stored: number }> =>
+      request('/profile', {
+        method: 'POST',
+        body: JSON.stringify(profile),
+      }),
+
+    status: (): Promise<{ has_profile: boolean }> =>
+      request('/profile/status'),
   },
 }

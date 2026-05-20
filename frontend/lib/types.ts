@@ -1,5 +1,18 @@
 // All TypeScript types mirroring the backend Pydantic schemas
 
+export interface VideoIntent {
+  topic: string
+  goal: string
+}
+
+export interface CreatorProfile {
+  niche: string
+  platform: string
+  styles: string[]
+  audience: string
+  never_use: string
+}
+
 export type ProjectStatus = 'uploaded' | 'processing' | 'ready_for_review' | 'archived'
 export type DerivativeStatus = 'draft' | 'approved' | 'rejected'
 export type Platform = 'instagram_reels' | 'youtube_shorts' | 'linkedin'

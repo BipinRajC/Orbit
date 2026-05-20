@@ -15,6 +15,20 @@ from pydantic import BaseModel
 class CreateProjectRequest(BaseModel):
     url: str  # YouTube URL
     target_platforms: list[str] | None = None  # defaults to all 3 if omitted
+    video_intent: "VideoIntentData | None" = None
+
+
+class VideoIntentData(BaseModel):
+    topic: str = ""   # e.g. "30-min full body workout for beginners"
+    goal: str = ""    # grow_followers | inspire | teach_skill | build_trust
+
+
+class CreatorProfileRequest(BaseModel):
+    niche: str             # fitness / business / tech / lifestyle / education / other
+    platform: str          # instagram / youtube / linkedin / tiktok
+    styles: list[str]      # energetic, calm, motivational, educational, funny, raw
+    audience: str          # beginners / intermediate / enthusiasts / professionals
+    never_use: str = ""    # freetext — negative patterns
 
 
 class ProcessingLogEntry(BaseModel):
