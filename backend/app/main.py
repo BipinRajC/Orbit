@@ -1,6 +1,8 @@
 import asyncio
 import logging
 
+import app.ssl_patch  # noqa: F401 — must be first; disables SSL verify for corp proxy
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

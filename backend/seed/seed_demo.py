@@ -8,6 +8,7 @@ Usage (from backend/ with .venv activated OR inside the Docker container):
 Set HINDSIGHT_BASE_URL and HINDSIGHT_API_KEY in .env before running.
 """
 import os
+import ssl
 import sys
 from pathlib import Path
 
@@ -16,6 +17,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / ".env")
+
+# Disable SSL verification before importing any HTTP clients (corp proxy)
+ssl._create_default_https_context = ssl._create_unverified_context  # type: ignore
+import httpx as _httpx
+_orig_sync = _httpx.Client.__init__
+_orig_async = _httpx.AsyncClient.__init__
+def _ps(self, *a, **kw): kw["verify"] = False; _orig_sync(self, *a, **kw)
+def _pa(self, *a, **kw): kw["verify"] = False; _orig_async(self, *a, **kw)
+_httpx.Client.__init__ = _ps  # type: ignore
+_httpx.AsyncClient.__init__ = _pa  # type: ignore
 
 from hindsight_client import Hindsight
 
@@ -41,6 +52,8 @@ def main() -> None:
         sys.exit(1)
 
     client = Hindsight(base_url=BASE_URL, api_key=API_KEY)
+    # Disable SSL verification for corporate proxy (CrowdStrike TLS inspection)
+    client._api_client.configuration.verify_ssl = False
 
     # Ensure bank exists
     try:

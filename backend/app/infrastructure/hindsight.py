@@ -40,6 +40,11 @@ async def init_memory_bank() -> None:
         base_url=settings.hindsight_base_url,
         api_key=settings.hindsight_api_key,
     )
+    # Disable SSL verification — corporate proxy (CrowdStrike) performs TLS
+    # inspection and its CA cert is not in the Docker image's trust store.
+    # The aiohttp session is created lazily so this must be set before the
+    # first call.
+    _client._api_client.configuration.verify_ssl = False
 
     # Idempotent bank initialisation
     bank_id = settings.hindsight_bank_id
