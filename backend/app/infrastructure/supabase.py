@@ -37,13 +37,19 @@ def _now() -> str:
 # Projects
 # ---------------------------------------------------------------------------
 
-async def create_project(source_url: str) -> dict[str, Any]:
+async def create_project(
+    source_url: str,
+    target_platforms: list[str] | None = None,
+) -> dict[str, Any]:
+    from app.config import get_settings
+    platforms = target_platforms or get_settings().default_platforms
     result = _db().table("content_projects").insert({
         "source_url": source_url,
         "status": "uploaded",
         "processing_log": [],
         "cost_log": {},
         "memory_context": {},
+        "target_platforms": platforms,
     }).execute()
     return result.data[0]
 
@@ -139,6 +145,9 @@ async def insert_moments(project_id: str, moments: list[dict[str, Any]]) -> list
             "transcript_snippet": m["transcript_snippet"],
             "strength_score": m["strength_score"],
             "selection_rationale": m["selection_rationale"],
+            "narrative_summary": m.get("narrative_summary", ""),
+            "hook_potential": m.get("hook_potential", ""),
+            "segments": m.get("segments"),  # JSONB — may be None for legacy
             "sort_order": idx,
         }
         for idx, m in enumerate(moments)
@@ -147,6 +156,14 @@ async def insert_moments(project_id: str, moments: list[dict[str, Any]]) -> list
         return []
     result = _db().table("moments").insert(rows).execute()
     return result.data
+
+
+async def update_moment_clip(moment_id: str, clip_url: str) -> None:
+    """Persist clip_url after successful extraction."""
+    _db().table("moments").update({
+        "clip_url": clip_url,
+        "updated_at": _now(),
+    }).eq("id", moment_id).execute()
 
 
 async def get_moment(moment_id: str) -> dict[str, Any] | None:
