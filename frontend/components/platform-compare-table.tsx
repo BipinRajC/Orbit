@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Derivative, ProductionBrief } from '@/lib/types'
+import { normalizeBrief } from '@/lib/types'
 import { api } from '@/lib/api'
 
 interface Props {
@@ -29,14 +30,15 @@ const SECTION_LABELS = [
 ] as const
 
 function parseBrief(content: string): ProductionBrief | null {
-  try { return JSON.parse(content) } catch { return null }
+  try { return normalizeBrief(JSON.parse(content) as Record<string, unknown>) } catch { return null }
 }
 
 function getField(brief: ProductionBrief, key: string): string {
   if (key === 'script.opening') return brief.script?.opening ?? ''
   if (key === 'script.body')    return brief.script?.body    ?? ''
   if (key === 'script.closer')  return brief.script?.closer  ?? ''
-  return (brief as Record<string, string>)[key] ?? ''
+  const val = (brief as unknown as Record<string, unknown>)[key]
+  return typeof val === 'string' ? val : ''
 }
 
 export function PlatformCompareTable({ derivatives, onUpdate }: Props) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { MomentGroup } from '@/components/moment-group'
+import { MomentCard } from '@/components/moment-card'
 import { ProgressStream } from '@/components/progress-stream'
 import { IntelligencePanel } from '@/components/intelligence-panel'
 import { CostPanel } from '@/components/cost-panel'
@@ -141,7 +141,7 @@ export default function ProjectPage() {
             {project.moments.length} moments
           </h2>
           {project.moments.map((moment, i) => (
-            <MomentGroup key={moment.id} moment={moment} index={i} sourceUrl={project.source_url} />
+            <MomentCard key={moment.id} moment={moment} index={i} sourceUrl={project.source_url} targetPlatforms={project.target_platforms} />
           ))}
         </div>
       ) : !isProcessing ? (

@@ -29,7 +29,7 @@ export function DraftEditor({ derivative, onUpdate }: Props) {
   const [showRegenInput, setShowRegenInput] = useState(false)
 
   // Framing content is stored as JSON — render it nicely
-  const isFraming = derivative.content_type === 'framing'
+  const isFraming = (derivative.content_type as string) === 'framing'
   let framingData: Record<string, string> | null = null
   if (isFraming) {
     try { framingData = JSON.parse(derivative.content) } catch { /* raw text fallback */ }

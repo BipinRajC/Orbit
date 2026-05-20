@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Derivative, ProductionBrief } from '@/lib/types'
+import { normalizeBrief } from '@/lib/types'
 import { api } from '@/lib/api'
 
 interface Props {
@@ -16,18 +17,24 @@ const PLATFORM_META: Record<string, { label: string; color: string; icon: string
 }
 
 const SECTION_LABELS = [
-  { key: 'hook', label: 'Hook', sublabel: '0-3s' },
-  { key: 'body', label: 'Body', sublabel: '3-45s' },
-  { key: 'cta', label: 'CTA', sublabel: 'close' },
+  { key: 'hook',              label: 'Hook',       sublabel: '0-3s' },
+  { key: 'script.body',       label: 'Body',       sublabel: '3-45s' },
+  { key: 'cta',               label: 'CTA',        sublabel: 'close' },
   { key: 'higgsfield_prompt', label: 'Higgsfield', sublabel: 'visual AI' },
 ] as const
 
 function parseBrief(content: string): ProductionBrief | null {
   try {
-    return JSON.parse(content)
+    return normalizeBrief(JSON.parse(content) as Record<string, unknown>)
   } catch {
     return null
   }
+}
+
+function getField(brief: ProductionBrief, key: string): string {
+  if (key === 'script.body') return brief.script?.body ?? ''
+  const val = (brief as unknown as Record<string, unknown>)[key]
+  return typeof val === 'string' ? val : ''
 }
 
 export function ProductionBriefTable({ derivatives, onUpdate }: Props) {
@@ -106,7 +113,7 @@ export function ProductionBriefTable({ derivatives, onUpdate }: Props) {
           {/* Platform cells */}
           {briefs.map(d => {
             const brief = parseBrief(d.content)
-            const value = brief?.[key] || ''
+            const value = brief ? getField(brief, key) : ''
             const isVisual = key === 'higgsfield_prompt'
             return (
               <div

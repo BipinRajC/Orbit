@@ -78,6 +78,7 @@ async def _download_segments(
             "-o", out_path,
             "--no-playlist",
             "--quiet",
+            "--no-check-certificate",   # corporate TLS-inspection proxy bypass
             source_url,
         ]
 
