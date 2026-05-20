@@ -149,6 +149,7 @@ export function MomentCard({ moment, index, sourceUrl, targetPlatforms }: Props)
         ) : activeBrief ? (
           <ProductionBriefView
             derivative={activeBrief}
+            momentTitle={moment.narrative_summary ?? moment.transcript_snippet.slice(0, 60)}
             onUpdate={handleDerivativeUpdate}
           />
         ) : (

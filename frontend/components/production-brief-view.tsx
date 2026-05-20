@@ -2,10 +2,13 @@
 
 import { useState } from 'react'
 import type { Derivative, ProductionBrief } from '@/lib/types'
+import { normalizeBrief } from '@/lib/types'
+import { formatBriefAsMarkdown } from '@/lib/export'
 import { api } from '@/lib/api'
 
 interface Props {
   derivative: Derivative
+  momentTitle?: string
   onUpdate: (updated: Derivative) => void
 }
 
@@ -16,13 +19,14 @@ const PLATFORM_META: Record<string, { label: string; color: string; icon: string
 }
 
 function parseBrief(content: string): ProductionBrief | null {
-  try { return JSON.parse(content) } catch { return null }
+  try { return normalizeBrief(JSON.parse(content) as Record<string, unknown>) } catch { return null }
 }
 
-export function ProductionBriefView({ derivative, onUpdate }: Props) {
+export function ProductionBriefView({ derivative, momentTitle = 'Moment', onUpdate }: Props) {
   const [loading, setLoading] = useState(false)
   const [showRegen, setShowRegen] = useState(false)
   const [guidance, setGuidance] = useState('')
+  const [copied, setCopied] = useState(false)
 
   const brief = parseBrief(derivative.content)
   const meta = PLATFORM_META[derivative.platform] || { label: derivative.platform, color: 'from-zinc-500 to-zinc-700', icon: '•' }
@@ -48,17 +52,25 @@ export function ProductionBriefView({ derivative, onUpdate }: Props) {
     } finally { setLoading(false) }
   }
 
+  async function handleCopy() {
+    if (!brief) return
+    const md = formatBriefAsMarkdown(brief, derivative.platform, momentTitle)
+    await navigator.clipboard.writeText(md)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   if (!brief) return null
 
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white overflow-hidden">
+    <div className="rounded-lg border border-zinc-200 bg-white">
       {/* Platform header */}
       <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
         <div className={`inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r ${meta.color} px-3 py-1 text-xs font-medium text-white`}>
           <span>{meta.icon}</span>
           {meta.label}
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           {derivative.status === 'approved' && (
             <span className="text-[10px] font-medium text-emerald-600">✓ Approved</span>
           )}
@@ -68,6 +80,12 @@ export function ProductionBriefView({ derivative, onUpdate }: Props) {
           {derivative.status === 'draft' && (
             <span className="text-[10px] text-zinc-400">Draft</span>
           )}
+          <button
+            onClick={handleCopy}
+            className="rounded border border-zinc-200 px-2 py-1 text-[10px] font-medium text-zinc-500 hover:border-zinc-300 hover:text-zinc-700 transition-colors"
+          >
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
         </div>
       </div>
 
@@ -89,23 +107,23 @@ export function ProductionBriefView({ derivative, onUpdate }: Props) {
         {/* Script */}
         <div className="px-4 py-3">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Script</p>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {brief.script?.opening && (
               <div>
-                <span className="text-[10px] font-medium text-zinc-400">Opening · </span>
-                <span className="text-xs leading-relaxed text-zinc-700">{brief.script.opening}</span>
+                <p className="mb-1 text-[10px] font-semibold text-zinc-400">Opening</p>
+                <p className="text-xs leading-relaxed text-zinc-700">{brief.script.opening}</p>
               </div>
             )}
             {brief.script?.body && (
               <div>
-                <span className="text-[10px] font-medium text-zinc-400">Body · </span>
-                <span className="text-xs leading-relaxed text-zinc-700">{brief.script.body}</span>
+                <p className="mb-1 text-[10px] font-semibold text-zinc-400">Body</p>
+                <p className="text-xs leading-relaxed text-zinc-700 whitespace-pre-wrap">{brief.script.body}</p>
               </div>
             )}
             {brief.script?.closer && (
               <div>
-                <span className="text-[10px] font-medium text-zinc-400">Closer · </span>
-                <span className="text-xs leading-relaxed text-zinc-700">{brief.script.closer}</span>
+                <p className="mb-1 text-[10px] font-semibold text-zinc-400">Closer</p>
+                <p className="text-xs leading-relaxed text-zinc-700">{brief.script.closer}</p>
               </div>
             )}
           </div>
@@ -116,6 +134,14 @@ export function ProductionBriefView({ derivative, onUpdate }: Props) {
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">CTA</p>
           <p className="text-xs text-zinc-700">{brief.cta}</p>
         </div>
+
+        {/* Caption */}
+        {brief.caption && (
+          <div className="bg-sky-50/40 px-4 py-3">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-sky-500">Caption</p>
+            <p className="text-xs leading-relaxed text-sky-900 whitespace-pre-wrap">{brief.caption}</p>
+          </div>
+        )}
 
         {/* Higgsfield */}
         {brief.higgsfield_prompt && (
