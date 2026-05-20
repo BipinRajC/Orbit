@@ -24,10 +24,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   projects: {
-    create: (url: string): Promise<ProjectListItem> =>
+    create: (url: string, targetPlatforms?: string[]): Promise<ProjectListItem> =>
       request('/projects', {
         method: 'POST',
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, target_platforms: targetPlatforms ?? null }),
       }),
 
     list: (): Promise<ProjectListItem[]> =>
