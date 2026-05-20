@@ -1,10 +1,11 @@
 """All REST API routes for ContentOS."""
 from __future__ import annotations
 
-import asyncio
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi.responses import FileResponse
 
 from app.api.schemas import (
     CreateProjectRequest,
@@ -26,6 +27,7 @@ from app.infrastructure.supabase import (
 )
 from app.domain.generation import regenerate_single_derivative
 from app.domain.memory import synthesize_and_store_observations
+from app.config import get_settings
 
 router = APIRouter()
 
@@ -40,8 +42,11 @@ async def create_new_project(
     background_tasks: BackgroundTasks,
 ) -> ProjectListItem:
     """Create a project and kick off the pipeline in the background."""
-    project = await create_project(source_url=body.url)
-    background_tasks.add_task(pipeline.run_pipeline, project["id"])
+    settings = get_settings()
+    platforms = body.target_platforms or settings.default_platforms
+
+    project = await create_project(source_url=body.url, target_platforms=platforms)
+    background_tasks.add_task(pipeline.run_pipeline, project["id"], platforms)
     return ProjectListItem(**{
         "id": project["id"],
         "status": project["status"],
@@ -77,6 +82,20 @@ async def complete_review(
         synthesize_and_store_observations, str(project_id)
     )
     return {"message": "Review synthesis started", "project_id": str(project_id)}
+
+
+# ---------------------------------------------------------------------------
+# Clip serving
+# ---------------------------------------------------------------------------
+
+@router.get("/clips/{project_id}/{moment_id}.mp4")
+async def serve_clip(project_id: str, moment_id: str) -> FileResponse:
+    """Serve extracted 9:16 MP4 clip files."""
+    settings = get_settings()
+    clip_path = Path(settings.clip_storage_path) / project_id / f"{moment_id}.mp4"
+    if not clip_path.exists():
+        raise HTTPException(status_code=404, detail="Clip not found")
+    return FileResponse(str(clip_path), media_type="video/mp4")
 
 
 # ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 
 
 # ---------------------------------------------------------------------------
@@ -14,6 +14,7 @@ from pydantic import BaseModel, HttpUrl
 
 class CreateProjectRequest(BaseModel):
     url: str  # YouTube URL
+    target_platforms: list[str] | None = None  # defaults to all 3 if omitted
 
 
 class ProcessingLogEntry(BaseModel):
@@ -23,10 +24,12 @@ class ProcessingLogEntry(BaseModel):
 
 
 class CostLog(BaseModel):
+    total_cost_usd: float = 0.0
+    # Legacy cascadeflow fields — kept for backwards compatibility
     total_calls: int = 0
     drafter_calls: int = 0
     verifier_calls: int = 0
-    total_cost_usd: float = 0.0
+    drafter_pct: int = 0
     estimated_savings_usd: float = 0.0
 
 
@@ -46,6 +49,7 @@ class ProjectResponse(BaseModel):
     processing_log: list[dict[str, Any]]
     cost_log: dict[str, Any]
     memory_context: dict[str, Any]
+    target_platforms: list[str] = []
     created_at: datetime
     updated_at: datetime
     moments: list[MomentResponse] = []
@@ -65,6 +69,12 @@ class ProjectListItem(BaseModel):
 # Moment
 # ---------------------------------------------------------------------------
 
+class SegmentResponse(BaseModel):
+    start: float
+    end: float
+    role: str  # primary | payoff | bridge
+
+
 class MomentResponse(BaseModel):
     id: UUID
     project_id: UUID
@@ -73,6 +83,10 @@ class MomentResponse(BaseModel):
     transcript_snippet: str
     strength_score: float
     selection_rationale: str
+    narrative_summary: str | None = None
+    hook_potential: str | None = None
+    segments: list[SegmentResponse] | None = None
+    clip_url: str | None = None
     sort_order: int
     created_at: datetime
     derivatives: list[DerivativeResponse] = []
