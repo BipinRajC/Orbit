@@ -1,10 +1,12 @@
 import asyncio
 import logging
+import os
 
 import app.ssl_patch  # noqa: F401 — must be first; disables SSL verify for corp proxy
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.api.routes import router
@@ -16,7 +18,7 @@ settings = get_settings()
 app = FastAPI(
     title="ContentOS API",
     description="AI-native Creator Operating System — transforms long-form content into platform-native derivatives",
-    version="0.1.0",
+    version="2.0.0",
 )
 
 app.add_middleware(
@@ -28,6 +30,11 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api")
+
+# Serve extracted clip files
+_clips_dir = settings.clip_storage_path
+os.makedirs(_clips_dir, exist_ok=True)
+app.mount("/api/clips", StaticFiles(directory=_clips_dir), name="clips")
 
 logger = logging.getLogger("contentos")
 
