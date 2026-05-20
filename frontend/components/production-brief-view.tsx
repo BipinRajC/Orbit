@@ -55,9 +55,13 @@ export function ProductionBriefView({ derivative, momentTitle = 'Moment', onUpda
   async function handleCopy() {
     if (!brief) return
     const md = formatBriefAsMarkdown(brief, derivative.platform, momentTitle)
-    await navigator.clipboard.writeText(md)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(md)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // clipboard write failed (e.g. permissions denied) — button stays as "Copy"
+    }
   }
 
   if (!brief) return null
