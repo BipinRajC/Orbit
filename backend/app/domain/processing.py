@@ -154,12 +154,14 @@ async def run_pipeline(project_id: str) -> None:
         # ------------------------------------------------------------------ #
         await update_project_status(
             project_id,
-            log_entry=_log("generate", f"Generating hooks, tweets, and framings for {len(moments)} moments..."),
+            log_entry=_log("generate", f"Generating production briefs (3 platforms) for {len(moments)} moments..."),
         )
 
         db_moments = await insert_moments(project_id, moments)
 
-        async def _generate_and_store(db_moment: dict[str, Any]) -> None:
+        # Process moments sequentially to avoid Groq rate limits
+        # (each moment still runs its 3 derivative calls in parallel)
+        for db_moment in db_moments:
             derivatives = await generate_derivatives_for_moment(
                 project_id=project_id,
                 moment=db_moment,
@@ -167,8 +169,6 @@ async def run_pipeline(project_id: str) -> None:
                 cost_acc=cost_acc,
             )
             await insert_derivatives(project_id, db_moment["id"], derivatives)
-
-        await asyncio.gather(*[_generate_and_store(m) for m in db_moments])
 
         # ------------------------------------------------------------------ #
         # STAGE 6: FINALISE

@@ -2,8 +2,8 @@
 
 export type ProjectStatus = 'uploaded' | 'processing' | 'ready_for_review' | 'archived'
 export type DerivativeStatus = 'draft' | 'approved' | 'rejected'
-export type Platform = 'short_form_video' | 'twitter'
-export type ContentType = 'hook' | 'caption' | 'tweet' | 'framing'
+export type Platform = 'short_form_video' | 'twitter' | 'instagram_reels' | 'youtube_shorts' | 'linkedin'
+export type ContentType = 'hook' | 'caption' | 'tweet' | 'framing' | 'production_brief'
 
 export interface ProcessingLogEntry {
   stage: string
@@ -26,6 +26,13 @@ export interface MemoryContext {
   reflection: string
   biases_applied: number
   available?: boolean
+}
+
+export interface ProductionBrief {
+  hook: string
+  body: string
+  cta: string
+  higgsfield_prompt: string
 }
 
 export interface Derivative {
@@ -76,11 +83,4 @@ export interface ProjectListItem {
   created_at: string
   updated_at: string
   moment_count: number
-}
-
-// Framing content (stored as JSON string in derivative.content)
-export interface FramingContent {
-  caption: string
-  hook_concept: string
-  visual_direction: string
 }

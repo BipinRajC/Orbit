@@ -141,7 +141,7 @@ export default function ProjectPage() {
             {project.moments.length} moments
           </h2>
           {project.moments.map((moment, i) => (
-            <MomentGroup key={moment.id} moment={moment} index={i} />
+            <MomentGroup key={moment.id} moment={moment} index={i} sourceUrl={project.source_url} />
           ))}
         </div>
       ) : !isProcessing ? (

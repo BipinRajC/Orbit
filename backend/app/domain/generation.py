@@ -1,4 +1,4 @@
-"""Derivative generation — hooks, tweets, short-form framing per moment."""
+"""Derivative generation — production briefs per moment across platforms."""
 from __future__ import annotations
 
 import asyncio
@@ -20,50 +20,92 @@ from app.infrastructure.supabase import (
 )
 
 # ---------------------------------------------------------------------------
-# Prompt templates
+# Cold-start CTA library (high-performing CTAs from top creators)
+# Hindsight memory will learn creator-specific CTAs over time
 # ---------------------------------------------------------------------------
 
-HOOK_SYSTEM = """\
-You are generating short-form video hooks for a creator's audience.
-A hook is the opening line/sentence that appears as text overlay or caption on a short video.
-It must grab attention in the first 2 seconds.
-
-Rules:
-- 1-2 sentences maximum
-- No generic phrases like "In this video..." or "Today we discuss..."
-- Create curiosity, tension, or a strong claim
-- Sound like the creator, not a marketer
-
-Return ONLY a JSON array of 2-3 hook strings. No markdown, no explanation.
-Example: ["Hook one here", "Different angle hook", "Question-style hook?"]
-"""
-
-TWEET_SYSTEM = """\
-You are generating Twitter/X posts for a creator sharing a key insight.
-The tweet should stand alone — readers haven't seen the video.
-
-Rules:
-- Under 280 characters preferred (under 240 to allow for a link)
-- Conversational, direct, no hashtag spam (max 1 if truly relevant)
-- The creator's voice: specific, opinionated, not vague
-- No "🧵" or thread format — single tweet only
-
-Return ONLY a JSON array of 1-2 tweet strings. No markdown, no explanation.
-Example: ["Tweet one text", "Alternative angle tweet"]
-"""
-
-FRAMING_SYSTEM = """\
-You are generating short-form video framing for a creator's clip.
-"Framing" means: the caption/title text, the hook concept, and how to present this clip on TikTok/Reels/Shorts.
-
-Return a single JSON object with these keys:
-{
-  "caption": "<main caption text, 1-2 sentences>",
-  "hook_concept": "<what makes this clip shareable — 1 sentence>",
-  "visual_direction": "<brief note on pacing/cut — 1 sentence>"
+COLD_START_CTAS = {
+    "instagram_reels": [
+        "Follow for daily breakdowns like this",
+        "Save this for when you need it",
+        "Tag someone who needs to hear this",
+        "Link in bio for the full episode",
+        "Drop a comment if this resonates",
+    ],
+    "youtube_shorts": [
+        "Subscribe — one of these drops every day",
+        "Like this if you want part 2",
+        "Full episode linked above — go watch",
+        "Hit subscribe so you don't miss the next one",
+        "Comment what topic you want next",
+    ],
+    "linkedin": [
+        "Repost if this resonates with your network",
+        "Follow for more founder insights like this",
+        "What's your take? Drop it in the comments",
+        "Save this post — you'll need it later",
+        "Agree or disagree? Let me know below",
+    ],
 }
 
-Return ONLY the JSON object. No markdown, no explanation.
+# ---------------------------------------------------------------------------
+# Production Brief Prompt — generates all 3 platforms in one call
+# ---------------------------------------------------------------------------
+
+PRODUCTION_BRIEF_SYSTEM = """\
+You are a world-class short-form content strategist. Given a strong moment from a creator's \
+long-form content, you produce production-ready briefs for 3 platforms.
+
+Each brief is a FULL SCRIPT the creator (or their editor) can directly use to produce content.
+
+## Platform Specs:
+- **Instagram Reels**: 30-60s, vertical 9:16, fast-paced, pattern interrupt hooks, visual-first
+- **YouTube Shorts**: 30-60s, vertical 9:16, slightly more story-driven, can be educational
+- **LinkedIn**: 30-90s vertical video OR text post with video, professional tone, insight-driven
+
+## Script Structure (for each platform):
+1. **Hook** (0-3s): The opening line/text overlay that stops the scroll. Must create instant curiosity or tension.
+2. **Body** (3-45s): The actual script — what the creator says, beat by beat. Write it as spoken words, natural and conversational. Include [PAUSE], [EMPHASIS], [CUT] cues where useful.
+3. **CTA** (last 5-10s): The closing call-to-action. Platform-appropriate.
+4. **Higgsfield Visual Prompt**: A single prompt for Higgsfield AI to generate the visual. Include: subject description, camera angle, movement, lighting, mood, aspect ratio.
+
+## CTA Guidelines:
+Pick ONE CTA that fits the content naturally. Here are proven high-performing CTAs per platform:
+
+### Instagram Reels CTAs:
+{ctas_reels}
+
+### YouTube Shorts CTAs:
+{ctas_shorts}
+
+### LinkedIn CTAs:
+{ctas_linkedin}
+
+If the creator has established CTA preferences (from memory context), use those instead.
+
+## Output Format:
+Return ONLY valid JSON — no markdown fences, no explanation before or after.
+
+{{
+  "instagram_reels": {{
+    "hook": "<the opening line, max 15 words>",
+    "body": "<full spoken script, 80-150 words, with [PAUSE] [EMPHASIS] [CUT] cues>",
+    "cta": "<the CTA line>",
+    "higgsfield_prompt": "<Higgsfield prompt: subject, camera, movement, lighting, mood, 9:16 vertical>"
+  }},
+  "youtube_shorts": {{
+    "hook": "<the opening line, max 15 words>",
+    "body": "<full spoken script, 80-150 words, with [PAUSE] [EMPHASIS] [CUT] cues>",
+    "cta": "<the CTA line>",
+    "higgsfield_prompt": "<Higgsfield prompt: subject, camera, movement, lighting, mood, 9:16 vertical>"
+  }},
+  "linkedin": {{
+    "hook": "<the opening line, max 15 words>",
+    "body": "<full spoken script, 100-200 words, professional but human tone>",
+    "cta": "<the CTA line>",
+    "higgsfield_prompt": "<Higgsfield prompt: subject, camera, movement, lighting, mood, 9:16 or 1:1>"
+  }}
+}}
 """
 
 
@@ -78,9 +120,8 @@ async def generate_derivatives_for_moment(
     cost_acc: CostAccumulator | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Generate all derivatives (hooks, tweets, framing) for a single moment.
-    Runs hook + tweet + framing generation in parallel.
-    Returns list of derivative dicts ready for DB insertion.
+    Generate production briefs for a single moment across all 3 platforms.
+    Returns list of derivative dicts ready for DB insertion (one per platform).
     """
     snippet = moment["transcript_snippet"]
     rationale = moment["selection_rationale"]
@@ -92,49 +133,71 @@ async def generate_derivatives_for_moment(
         else ""
     )
 
-    base_context = (
+    user_prompt = (
         f"{memory_section}"
         f"## Source Moment\n"
         f"Timestamp: {timestamps}\n"
         f'"{snippet}"\n\n'
-        f"Selection rationale: {rationale}"
+        f"Selection rationale: {rationale}\n\n"
+        f"Generate the production briefs for all 3 platforms."
+    )
+
+    # Format the system prompt with CTA library
+    system = PRODUCTION_BRIEF_SYSTEM.format(
+        ctas_reels="\n".join(f"- \"{c}\"" for c in COLD_START_CTAS["instagram_reels"]),
+        ctas_shorts="\n".join(f"- \"{c}\"" for c in COLD_START_CTAS["youtube_shorts"]),
+        ctas_linkedin="\n".join(f"- \"{c}\"" for c in COLD_START_CTAS["linkedin"]),
     )
 
     agent = get_generation_agent()
+    raw = await run_prompt(agent, system, user_prompt, cost_acc)
 
-    hooks_raw, tweets_raw, framing_raw = await asyncio.gather(
-        run_prompt(agent, HOOK_SYSTEM, base_context, cost_acc),
-        run_prompt(agent, TWEET_SYSTEM, base_context, cost_acc),
-        run_prompt(agent, FRAMING_SYSTEM, base_context, cost_acc),
-    )
+    return _parse_production_briefs(raw)
+
+
+def _parse_production_briefs(raw: str) -> list[dict[str, Any]]:
+    """Parse LLM response into platform-specific derivative dicts."""
+    cleaned = re.sub(r"```(?:json)?", "", raw).strip()
+
+    data = None
+    try:
+        data = json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Try to extract JSON object from response
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        if match:
+            try:
+                data = json.loads(match.group())
+            except Exception:
+                pass
+
+    if not data or not isinstance(data, dict):
+        return []
 
     derivatives: list[dict[str, Any]] = []
+    platforms = ["instagram_reels", "youtube_shorts", "linkedin"]
 
-    # Parse hooks
-    for hook in _parse_string_array(hooks_raw):
-        derivatives.append({
-            "platform": "short_form_video",
-            "content_type": "hook",
-            "content": hook,
-            "model": "cascadeflow",
-        })
+    for platform in platforms:
+        brief = data.get(platform)
+        if not brief or not isinstance(brief, dict):
+            continue
 
-    # Parse tweets
-    for tweet in _parse_string_array(tweets_raw):
-        derivatives.append({
-            "platform": "twitter",
-            "content_type": "tweet",
-            "content": tweet,
-            "model": "cascadeflow",
-        })
+        # Ensure all required keys exist
+        content = {
+            "hook": brief.get("hook", ""),
+            "body": brief.get("body", ""),
+            "cta": brief.get("cta", ""),
+            "higgsfield_prompt": brief.get("higgsfield_prompt", ""),
+        }
 
-    # Parse framing
-    framing = _parse_framing(framing_raw)
-    if framing:
+        # Skip if essentially empty
+        if not content["hook"] and not content["body"]:
+            continue
+
         derivatives.append({
-            "platform": "short_form_video",
-            "content_type": "framing",
-            "content": json.dumps(framing),
+            "platform": platform,
+            "content_type": "production_brief",
+            "content": json.dumps(content),
             "model": "cascadeflow",
         })
 
@@ -144,6 +207,29 @@ async def generate_derivatives_for_moment(
 # ---------------------------------------------------------------------------
 # Single derivative regeneration (used by the /regenerate endpoint)
 # ---------------------------------------------------------------------------
+
+REGEN_SINGLE_SYSTEM = """\
+You are regenerating a production brief for a single platform. Given the source moment and \
+optional creator guidance, produce an updated brief.
+
+Return ONLY valid JSON with these keys:
+{{
+  "hook": "<the opening line, max 15 words>",
+  "body": "<full spoken script with [PAUSE] [EMPHASIS] [CUT] cues>",
+  "cta": "<the CTA line>",
+  "higgsfield_prompt": "<Higgsfield prompt: subject, camera, movement, lighting, mood, aspect ratio>"
+}}
+
+Platform: {platform}
+{platform_notes}
+"""
+
+PLATFORM_NOTES = {
+    "instagram_reels": "Instagram Reels: 30-60s, vertical 9:16, fast-paced, pattern interrupt hooks, visual-first",
+    "youtube_shorts": "YouTube Shorts: 30-60s, vertical 9:16, story-driven, can be educational",
+    "linkedin": "LinkedIn: 30-90s video or text+video, professional tone, insight-driven",
+}
+
 
 async def regenerate_single_derivative(
     derivative_id: str,
@@ -176,55 +262,29 @@ async def regenerate_single_derivative(
         f"{guidance_note}"
     )
 
-    system_map = {
-        "hook": HOOK_SYSTEM,
-        "tweet": TWEET_SYSTEM,
-        "framing": FRAMING_SYSTEM,
-        "caption": FRAMING_SYSTEM,
-    }
-    system = system_map.get(derivative["content_type"], HOOK_SYSTEM)
+    platform = derivative["platform"]
+    system = REGEN_SINGLE_SYSTEM.format(
+        platform=platform,
+        platform_notes=PLATFORM_NOTES.get(platform, ""),
+    )
 
     agent = get_generation_agent()
     raw = await run_prompt(agent, system, context)
 
-    # Parse based on type
-    if derivative["content_type"] == "framing":
-        parsed = _parse_framing(raw)
-        new_content = json.dumps(parsed) if parsed else raw.strip()
-    else:
-        items = _parse_string_array(raw)
-        new_content = items[0] if items else raw.strip()
+    # Parse the single brief
+    new_content = _parse_single_brief(raw)
+    if not new_content:
+        return None
 
     # Persist and return
-    updated = await update_derivative_content(derivative_id, new_content)
+    updated = await update_derivative_content(derivative_id, json.dumps(new_content))
     if updated:
         await update_derivative_status(derivative_id, "draft")
     return updated
 
 
-# ---------------------------------------------------------------------------
-# Parsers
-# ---------------------------------------------------------------------------
-
-def _parse_string_array(raw: str) -> list[str]:
-    cleaned = re.sub(r"```(?:json)?", "", raw).strip()
-    try:
-        data = json.loads(cleaned)
-        if isinstance(data, list):
-            return [str(x).strip() for x in data if x]
-    except json.JSONDecodeError:
-        match = re.search(r"\[.*\]", cleaned, re.DOTALL)
-        if match:
-            try:
-                data = json.loads(match.group())
-                return [str(x).strip() for x in data if x]
-            except Exception:
-                pass
-    # Last resort: return the raw text as a single item
-    return [cleaned] if cleaned else []
-
-
-def _parse_framing(raw: str) -> dict[str, str] | None:
+def _parse_single_brief(raw: str) -> dict[str, str] | None:
+    """Parse a single platform brief from LLM response."""
     cleaned = re.sub(r"```(?:json)?", "", raw).strip()
     try:
         data = json.loads(cleaned)

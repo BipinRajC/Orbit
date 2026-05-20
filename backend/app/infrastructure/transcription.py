@@ -50,10 +50,14 @@ async def _transcribe_file(path: str, offset_seconds: float = 0.0) -> list[dict]
 
     segments = []
     for seg in response.segments or []:
+        # Groq SDK may return segment as dict or typed object depending on version
+        start = seg["start"] if isinstance(seg, dict) else seg.start
+        end = seg["end"] if isinstance(seg, dict) else seg.end
+        text = seg["text"] if isinstance(seg, dict) else seg.text
         segments.append({
-            "start": seg.start + offset_seconds,
-            "end": seg.end + offset_seconds,
-            "text": seg.text.strip(),
+            "start": start + offset_seconds,
+            "end": end + offset_seconds,
+            "text": text.strip(),
         })
     return segments
 
