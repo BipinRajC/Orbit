@@ -6,6 +6,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - clips_data:/app/clips
     env_file:
       - ./backend/.env
     environment:
@@ -26,3 +27,6 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  clips_data:  # persistent clip storage shared with backend
