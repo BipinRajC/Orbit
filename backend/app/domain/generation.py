@@ -41,7 +41,7 @@ PLATFORM_SPECS = {
 
 BRIEF_SCHEMA = {
     "type": "object",
-    "required": ["hook", "angle", "script", "cta", "higgsfield_prompt", "editing_notes"],
+    "required": ["hook", "angle", "script", "cta", "caption", "higgsfield_prompt", "editing_notes"],
     "properties": {
         "hook": {
             "type": "string",
@@ -61,7 +61,11 @@ BRIEF_SCHEMA = {
                 },
                 "body": {
                     "type": "string",
-                    "description": "Main content — spoken script with [CUT], [PAUSE], [EMPHASIS] cues.",
+                    "description": (
+                        "Full spoken script for the main content — every word the creator says, "
+                        "with [CUT], [PAUSE], [EMPHASIS] production cues inline. "
+                        "Do NOT summarise. Write out the complete script."
+                    ),
                 },
                 "closer": {
                     "type": "string",
@@ -72,6 +76,15 @@ BRIEF_SCHEMA = {
         "cta": {
             "type": "string",
             "description": "Call to action — 1 sentence, platform-appropriate.",
+        },
+        "caption": {
+            "type": "string",
+            "description": (
+                "Platform-native post caption. "
+                "Instagram/TikTok: punchy opener, 2-3 relevant hashtags, hook in first line. "
+                "LinkedIn: professional tone, no hashtags, opens with a question or insight. "
+                "YouTube Shorts: 1-2 sentences + 2-3 hashtags, describe the clip's value."
+            ),
         },
         "higgsfield_prompt": {
             "type": "string",
@@ -151,7 +164,7 @@ async def generate_brief_for_platform(
             tool_name="generate_brief",
             tool_description=f"Generate a production-ready brief for {platform}.",
             input_schema=BRIEF_SCHEMA,
-            max_tokens=2048,
+            max_tokens=4096,
             temperature=0.8,
         )
     except Exception as exc:
@@ -172,6 +185,7 @@ async def generate_brief_for_platform(
             "closer": script.get("closer", ""),
         },
         "cta": result.get("cta", ""),
+        "caption": result.get("caption", ""),
         "higgsfield_prompt": result.get("higgsfield_prompt", ""),
         "editing_notes": result.get("editing_notes", ""),
     }
@@ -275,7 +289,7 @@ async def regenerate_single_derivative(
             tool_name="generate_brief",
             tool_description=f"Regenerate the production brief for {platform}.",
             input_schema=BRIEF_SCHEMA,
-            max_tokens=2048,
+            max_tokens=4096,
             temperature=0.9,
         )
     except Exception:
@@ -291,6 +305,7 @@ async def regenerate_single_derivative(
             "closer": script.get("closer", ""),
         },
         "cta": result.get("cta", ""),
+        "caption": result.get("caption", ""),
         "higgsfield_prompt": result.get("higgsfield_prompt", ""),
         "editing_notes": result.get("editing_notes", ""),
     }
