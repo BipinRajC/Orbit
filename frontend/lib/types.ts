@@ -47,6 +47,7 @@ export interface ProductionBrief {
   angle: string
   script: ProductionScript
   cta: string
+  caption?: string
   higgsfield_prompt: string
   editing_notes: string
 }
@@ -94,6 +95,29 @@ export interface Project {
   created_at: string
   updated_at: string
   moments: Moment[]
+}
+
+/**
+ * Normalize a parsed brief JSON object to the current ProductionBrief shape.
+ * Handles the old v1 format where `body` was a top-level key instead of
+ * being nested under `script`, and `angle`/`editing_notes` didn't exist.
+ */
+export function normalizeBrief(raw: Record<string, unknown>): ProductionBrief {
+  const script = raw.script as Record<string, string> | null | undefined
+  return {
+    hook:             (raw.hook             as string) ?? '',
+    angle:            (raw.angle            as string) ?? '',
+    script: {
+      opening:        script?.opening                  ?? '',
+      // v1 stored body at the top level — fall back to it if script.body is empty
+      body:           script?.body ?? (raw.body        as string) ?? '',
+      closer:         script?.closer                   ?? '',
+    },
+    cta:              (raw.cta              as string) ?? '',
+    caption:          (raw.caption          as string) ?? undefined,
+    higgsfield_prompt:(raw.higgsfield_prompt as string) ?? '',
+    editing_notes:    (raw.editing_notes    as string) ?? '',
+  }
 }
 
 export interface ProjectListItem {
