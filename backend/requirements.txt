@@ -6,6 +6,7 @@ pydantic-settings>=2.4.0
 supabase>=2.10.0
 httpx>=0.27.0
 groq>=0.11.0
+anthropic>=0.40.0
 yt-dlp>=2024.11.4
 hindsight-client>=0.6.2
 cascadeflow>=1.2.0
