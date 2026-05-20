@@ -62,13 +62,13 @@ async def init_memory_bank() -> None:
         print(f"✅ Hindsight bank '{bank_id}' already exists")
 
 
-def recall_memories(query: str) -> dict[str, Any]:
+async def recall_memories(query: str) -> dict[str, Any]:
     """Pull raw memories relevant to a query. Returns display-ready dict."""
     settings = get_settings()
     if _client is None:
         return {"recall_count": 0, "recall_items": [], "available": False}
 
-    response = _get_client().recall(
+    response = await _get_client().arecall(
         bank_id=settings.hindsight_bank_id,
         query=query,
         budget="mid",
@@ -81,13 +81,13 @@ def recall_memories(query: str) -> dict[str, Any]:
     }
 
 
-def reflect_on_creator(query: str) -> str:
+async def reflect_on_creator(query: str) -> str:
     """Synthesise a compact reflection to inject into generation prompts."""
     settings = get_settings()
     if _client is None:
         return ""
 
-    response = _get_client().reflect(
+    response = await _get_client().areflect(
         bank_id=settings.hindsight_bank_id,
         query=query,
         budget="low",
@@ -95,13 +95,13 @@ def reflect_on_creator(query: str) -> str:
     return response.text if response else ""
 
 
-def retain_observation(observation: str, tags: list[str] | None = None) -> None:
+async def retain_observation(observation: str, tags: list[str] | None = None) -> None:
     """Store a single observation about the creator's editing behaviour."""
     settings = get_settings()
     if _client is None:
         return
 
-    _get_client().retain(
+    await _get_client().aretain(
         bank_id=settings.hindsight_bank_id,
         content=observation,
         tags=tags or ["editing-behaviour"],

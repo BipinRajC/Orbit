@@ -26,7 +26,8 @@ async def fetch_audio(url: str) -> tuple[str, str | None]:
         "--audio-quality", "5",          # 128kbps — enough for Whisper
         "--output", output_template,
         "--print", "title",              # print title to stdout
-        "--no-progress",
+        "--no-simulate",                 # --print implies --simulate in newer yt-dlp; override it
+        "--no-check-certificate",        # corp proxy (CrowdStrike) intercepts TLS
         url,
     ]
 
@@ -71,7 +72,8 @@ async def fetch_transcript_from_youtube(url: str) -> tuple[list[dict], str | Non
         "--skip-download",
         "--output", output_template,
         "--print", "title",
-        "--no-progress",
+        "--no-simulate",                 # --print implies --simulate in newer yt-dlp; override it
+        "--no-check-certificate",        # corp proxy (CrowdStrike) intercepts TLS
         url,
     ]
 

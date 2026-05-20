@@ -61,7 +61,7 @@ async def synthesize_and_store_observations(project_id: str) -> None:
     observations = _parse_observations(raw)
 
     for obs in observations:
-        retain_observation(obs, tags=["editing-behaviour", f"project-{project_id[:8]}"])
+        await retain_observation(obs, tags=["editing-behaviour", f"project-{project_id[:8]}"])
 
     # Mark project as archived (review complete)
     await update_project_status(

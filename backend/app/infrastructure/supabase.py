@@ -90,7 +90,7 @@ async def get_project_with_details(project_id: str) -> dict[str, Any] | None:
 
 async def update_project_status(
     project_id: str,
-    status: str,
+    status: str | None = None,
     log_entry: dict[str, Any] | None = None,
     cost_log: dict[str, Any] | None = None,
     memory_context: dict[str, Any] | None = None,
@@ -100,9 +100,10 @@ async def update_project_status(
 ) -> None:
     # Build update payload
     payload: dict[str, Any] = {
-        "status": status,
         "updated_at": _now(),
     }
+    if status is not None:
+        payload["status"] = status
     if title is not None:
         payload["title"] = title
     if transcript is not None:

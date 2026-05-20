@@ -106,10 +106,10 @@ async def run_pipeline(project_id: str) -> None:
             log_entry=_log("recall", "Recalling creator memory from Hindsight..."),
         )
 
-        recall_result = recall_memories(
+        recall_result = await recall_memories(
             query="How does this creator prefer their content? Hook styles, tweet style, editing preferences."
         )
-        reflection = reflect_on_creator(
+        reflection = await reflect_on_creator(
             query="Summarise this creator's content preferences, voice, and style for generating hooks and tweets."
         )
 
