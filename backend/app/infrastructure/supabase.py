@@ -143,6 +143,8 @@ async def insert_moments(project_id: str, moments: list[dict[str, Any]]) -> list
         }
         for idx, m in enumerate(moments)
     ]
+    if not rows:
+        return []
     result = _db().table("moments").insert(rows).execute()
     return result.data
 
@@ -173,6 +175,8 @@ async def insert_derivatives(
         }
         for d in derivatives
     ]
+    if not rows:
+        return []
     result = _db().table("derivatives").insert(rows).execute()
     return result.data
 
