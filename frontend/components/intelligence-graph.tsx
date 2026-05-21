@@ -44,7 +44,7 @@ const PLATFORM_HEADERS: Record<string, { title: string; sub: string }> = {
 }
 
 const DEFAULT_HEADER = {
-  title: 'What ContentOS knows about you',
+  title: 'What OrbitOS knows about your persona',
   sub: 'A live map of memories, traits, and learned preferences',
 }
 
@@ -88,7 +88,7 @@ export function IntelligenceGraph({ projectId, platform = null }: Props) {
       setGraph({
         project_id: projectId,
         nodes: [
-          { id: 'creator', label: 'Creator Voice', kind: 'root', weight: 1 },
+          { id: 'creator', label: 'Creator Persona', kind: 'root', weight: 1 },
           { id: 'tone-direct', label: 'Direct tone', kind: 'trait', weight: 0.72 },
           { id: 'tone-warm', label: 'Warm phrasing', kind: 'trait', weight: 0.61 },
           { id: 'platform-twitter', label: 'Twitter', kind: 'platform', weight: 0.85 },

@@ -42,7 +42,7 @@ const FEATURE_CARDS = [
   { icon: Brain,         bg: '#FFE0B2', title: 'Moment Detection', desc: 'AI finds the clips people actually want to share, ranked by virality.', stat: '3–8 per video' },
   { icon: Wand2,         bg: '#FFCDD2', title: 'Hook Generator',   desc: '5 platform-native opening hooks per moment, written to stop the scroll.', stat: '5× faster' },
   { icon: MessageCircle, bg: '#C8E6C9', title: 'Tweet Threads',    desc: 'Moments become tweetable threads instantly. Edit, approve, copy.',          stat: 'Seconds' },
-  { icon: Mic,           bg: '#D1C4E9', title: 'Creator Voice',    desc: 'Cascade AI learns your tone from every edit. Output gets more "you".',     stat: 'Adaptive' },
+  { icon: Mic,           bg: '#D1C4E9', title: 'Creator Persona',    desc: 'OrbitOS learns your persona from every edit. Output gets more "you" over time.',     stat: 'Adaptive' },
 ]
 
 export default function DashboardPage() {
@@ -112,8 +112,8 @@ export default function DashboardPage() {
           transition={{ duration: 0.5, delay: 0.12 }}
           className="mt-4 max-w-2xl text-base leading-relaxed text-[#1a1a1a]/65"
         >
-          ContentOS extracts the highest-value moments from any YouTube video, writes
-          hooks and tweet threads, and learns your voice — so you ship faster.
+          OrbitOS extracts the 7 best moments from your YouTube video, writes
+          platform-ready shorts for every destination, and learns your persona — so you ship a full week of content in minutes.
         </motion.p>
 
         {/* Feature pills */}
@@ -175,7 +175,7 @@ export default function DashboardPage() {
           transition={{ delay: 0.3 }}
           className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-[#1a1a1a]/40"
         >
-          What ContentOS does for you
+          What OrbitOS does for you
         </motion.p>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {FEATURE_CARDS.map((f, i) => (

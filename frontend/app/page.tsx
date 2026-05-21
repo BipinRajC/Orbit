@@ -7,14 +7,14 @@ import { Mascot, ThoughtBubble } from '@/components/mascot'
 import { OnboardingDialog } from '@/components/onboarding-dialog'
 
 // ─── Task pills (hero) ────────────────────────────────────────────────
-const TASKS = ['Hook Writing', 'Moment Detection', 'Tweet Threads', 'Voice Cloning']
+const TASKS = ['Hook Writing', 'Moment Detection', 'Short-Form Scripts', 'Persona Learning']
 
 // ─── Marquee capability ticker (cream theme) ──────────────────────────
 const TICKER = [
   '✦ AI Moment Detection',
   '✧ Viral Hook Writing',
-  '◆ Tweet Threads',
-  '✦ Creator Voice Memory',
+  '◆ Short-Form Scripts',
+  '✦ Creator Persona Memory',
   '✧ Virality Scoring',
   '◆ Clip Notes',
   '✦ Auto Captions',
@@ -67,7 +67,7 @@ const STEPS = [
   {
     n: 1,
     title: 'Drop a YouTube URL',
-    desc: 'Paste any public video link. ContentOS downloads, transcribes, and segments the full video automatically — no setup, no edits, no tools to learn.',
+    desc: 'Paste any public video link. OrbitOS downloads, transcribes, and segments the full video automatically — no setup, no edits, no tools to learn.',
     chat: {
       user: 'Process this video and find the best 5 moments for Twitter and shorts.',
       ai: "On it. I'll transcribe, score every scene for virality, and draft posts for the top moments.",
@@ -85,7 +85,7 @@ const STEPS = [
   {
     n: 3,
     title: 'Review the drafts',
-    desc: 'ContentOS presents a diff-style view of every generated draft. Tweak one word or rewrite a whole hook — every edit teaches the AI your voice.',
+    desc: 'OrbitOS presents a diff-style view of every generated draft. Tweak one word or rewrite a whole hook — every edit teaches OrbitOS your persona.',
     chat: {
       user: 'Make hook 3 punchier.',
       ai: 'Done. Rewritten with a sharper opening — 18% shorter.',
@@ -94,7 +94,7 @@ const STEPS = [
   {
     n: 4,
     title: 'Approve and publish',
-    desc: 'One click approves the batch. ContentOS exports platform-native drafts ready to post on X, LinkedIn, and short-video platforms.',
+    desc: 'One click approves the batch. OrbitOS exports platform-native drafts ready to post on X, LinkedIn, and short-video platforms.',
     chat: {
       user: 'Approve all and export.',
       ai: '5 posts approved. Exports ready in your inbox.',
@@ -104,29 +104,29 @@ const STEPS = [
 
 // ─── Feature cards (Jules-style 4-up row) ─────────────────────────────
 const FEATURES = [
-  { title: 'YouTube Integration', desc: 'ContentOS imports any public video, transcribes it, and segments it for you.' },
+  { title: 'YouTube Integration', desc: 'OrbitOS imports any public video, transcribes it, and segments it for you.' },
   { title: 'Virality Scoring',    desc: 'Every scene is scored 0–100 so the best moments rise to the top automatically.' },
-  { title: 'Voice Memory',        desc: 'ContentOS clones your tone from every edit you make. Output gets more "you" over time.' },
-  { title: 'Available Anywhere',  desc: 'Use ContentOS from the web, the CLI, or your own workflows via the API.' },
+  { title: 'Persona Memory',      desc: 'OrbitOS learns your creator persona from every edit you make. Output gets more "you" over time.' },
+  { title: 'Available Anywhere',  desc: 'Use OrbitOS from the web, the CLI, or your own workflows via the API.' },
 ]
 
 // ─── Plans (3 tiers exactly like Jules) ───────────────────────────────
 const PLANS = [
   {
-    name: 'ContentOS',
+    name: 'OrbitOS',
     tag: 'Get started with real content tasks.',
     bullets: ['5 videos per day', '2 concurrent jobs', 'Powered by Cascade Base'],
-    cta: 'Try ContentOS',
+    cta: 'Try OrbitOS',
     href: '/dashboard',
     accent: '#FFD180',
     glyph: '◆',
     featured: false,
   },
   {
-    name: 'ContentOS in Pro',
+    name: 'OrbitOS in Pro',
     tag: 'For creators who ship daily and want to stay in the flow.',
     bullets: [
-      '50 videos per day, enough to run ContentOS throughout your creator week',
+      '50 videos per day, enough to run OrbitOS throughout your creator week',
       '10 concurrent jobs, so you can run multiple threads in parallel',
       'Higher access to the latest models, starting with Cascade Pro',
     ],
@@ -137,7 +137,7 @@ const PLANS = [
     featured: true,
   },
   {
-    name: 'ContentOS in Ultra',
+    name: 'OrbitOS in Ultra',
     tag: 'For studios who run content engines at scale.',
     bullets: [
       '300 videos per day to power the most demanding studios',
@@ -176,13 +176,13 @@ export default function LandingPage() {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2">
             <Mascot className="h-8 w-8" />
-            <span className="text-base font-black tracking-tight">ContentOS</span>
+            <span className="text-base font-black tracking-tight">OrbitOS</span>
           </Link>
           <button
             onClick={handleCTA}
             className="rounded-full border-2 border-[#1a1a1a] bg-[#1a1a1a] px-4 py-1.5 text-sm font-bold text-[#FAF7F0] transition-all hover:-translate-y-0.5 hover:bg-[#FF8A65] hover:text-[#1a1a1a]"
           >
-            Try ContentOS
+            Try OrbitOS
           </button>
         </div>
       </header>
@@ -328,7 +328,7 @@ export default function LandingPage() {
             transition={{ delay: 0.45 }}
             className="mt-7 text-lg font-medium text-[#1a1a1a]/80 sm:text-xl"
           >
-            ContentOS does the content work you don&apos;t want to do.
+            OrbitOS does the content work you don&apos;t want to do.
           </motion.p>
 
           <motion.div
@@ -388,7 +388,7 @@ export default function LandingPage() {
                 className="group inline-flex items-center gap-2 rounded-full border-2 border-[#1a1a1a] bg-[#1a1a1a] px-8 py-3.5 text-base font-bold text-[#FAF7F0] shadow-[5px_5px_0_#FF8A65] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[7px_7px_0_#FF8A65]"
                 onClick={e => { e.preventDefault(); handleCTA() }}
               >
-                Try ContentOS
+                Try OrbitOS
                 <motion.span
                   animate={{ x: [0, 4, 0] }}
                   transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
@@ -516,7 +516,7 @@ export default function LandingPage() {
             className="mb-14 text-center"
           >
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-[#1a1a1a]/50">
-              What ContentOS creates for you
+              What OrbitOS creates for you
             </p>
             <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
               From one video to a week of posts
@@ -560,7 +560,7 @@ export default function LandingPage() {
                 variants={{ visible: { transition: { staggerChildren: 0.02 } } }}
                 className="mt-4 text-[15px] leading-relaxed text-[#1a1a1a]"
               >
-                {Array.from('Most creators spend 6 hours repurposing a single podcast. I just dropped a YouTube URL into ContentOS and got 5 tweets, 3 hooks, and clip notes — all in my voice. This is the future of content. 🧵').map((char, i) => (
+                {Array.from('Most creators spend 6 hours repurposing a single podcast. I just dropped a YouTube URL into OrbitOS and got 5 tweets, 3 hooks, and clip notes — all in my voice. This is the future of content. 🧵').map((char, i) => (
                   <motion.span
                     key={i}
                     variants={{
@@ -651,7 +651,7 @@ export default function LandingPage() {
                     <span className="text-[14px] font-bold text-[#1a1a1a]">Alex Chen</span>
                     <span className="text-[13px] text-[#1a1a1a]/40">· 1st</span>
                   </div>
-                  <p className="text-[12px] leading-snug text-[#1a1a1a]/50">Head of Growth @ ContentOS | Creator | AI Enthusiast</p>
+                  <p className="text-[12px] leading-snug text-[#1a1a1a]/50">Head of Growth @ OrbitOS | Creator | AI Enthusiast</p>
                   <p className="mt-0.5 flex items-center gap-1 text-[11px] text-[#1a1a1a]/40">
                     <span>2h</span>
                     <span>·</span>
@@ -670,7 +670,7 @@ export default function LandingPage() {
                   variants={{ visible: { transition: { staggerChildren: 0.015 } } }}
                   className="text-[14px] leading-relaxed text-[#1a1a1a]"
                 >
-                  {Array.from('23 cheap (under $100) content growth hacks that you MUST try ❤️\n\nI repurposed a single 1hr podcast into 47 pieces of content using ContentOS.\n\nThe result? 17,695 views in the first 4 hours.').map((char, i) => (
+                  {Array.from('23 cheap (under $100) content growth hacks that you MUST try ❤️\n\nI repurposed a single 1hr podcast into 47 pieces of content using OrbitOS.\n\nThe result? 17,695 views in the first 4 hours.').map((char, i) => (
                     <motion.span
                       key={i}
                       variants={{
@@ -788,7 +788,7 @@ export default function LandingPage() {
                     variants={{ visible: { transition: { staggerChildren: 0.015 } } }}
                     className="text-[13px] leading-snug text-white/90"
                   >
-                    {Array.from('Here\'s the moment that scored 94/100 on virality. ContentOS found it in a 1hr podcast 🎯🔥').map((char, i) => (
+                    {Array.from('Here\'s the moment that scored 94/100 on virality. OrbitOS found it in a 1hr podcast 🎯🔥').map((char, i) => (
                       <motion.span
                         key={i}
                         variants={{
@@ -864,7 +864,7 @@ export default function LandingPage() {
       {/* ─── INTRO LINE before steps ─── */}
       <section className="px-6 pb-8 text-center">
         <p className="mx-auto max-w-2xl text-base text-[#1a1a1a]/60">
-          Use ContentOS from the web, the{' '}
+          Use OrbitOS from the web, the{' '}
           <a className="underline decoration-[#FF8A65] decoration-2 underline-offset-4 hover:text-[#FF8A65]" href="#">CLI</a>
           {' '}or build your own workflows using the{' '}
           <a className="underline decoration-[#FF8A65] decoration-2 underline-offset-4 hover:text-[#FF8A65]" href="#">API</a>.
@@ -960,10 +960,10 @@ export default function LandingPage() {
             viewport={{ once: false }}
             className="mb-3 text-center text-4xl font-black tracking-tight sm:text-5xl"
           >
-            Find the ContentOS plan<br />that fits your workflow
+            Find the OrbitOS plan<br />that fits your workflow
           </motion.h2>
           <p className="mx-auto mb-16 max-w-2xl text-center text-base text-[#1a1a1a]/60">
-            ContentOS scales with how you create, from quick clips to fully async, multi-agent studios.
+            OrbitOS scales with how you create, from quick clips to fully async, multi-agent studios.
             Choose the plan that gives you the speed, throughput, and model access you need.
           </p>
 
@@ -1027,10 +1027,10 @@ export default function LandingPage() {
             >
               <Mascot className="h-8 w-8" />
             </motion.div>
-            <span className="text-sm font-bold">ContentOS</span>
+            <span className="text-sm font-bold">OrbitOS</span>
           </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-semibold text-[#1a1a1a]/60">
-            <Link href="/dashboard" className="hover:text-[#1a1a1a]">Try ContentOS</Link>
+            <Link href="/dashboard" className="hover:text-[#1a1a1a]">Try OrbitOS</Link>
             <a href="#" className="hover:text-[#1a1a1a]">Documentation</a>
             <a href="#" className="hover:text-[#1a1a1a]">Cascade Labs</a>
             <a href="#" className="hover:text-[#1a1a1a]">Terms</a>

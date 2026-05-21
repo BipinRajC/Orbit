@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'ContentOS — AI Content Studio',
-  description: 'Turn any YouTube video into creator-voiced hooks, tweets, and clip framing.',
+  title: 'OrbitOS — AI Shorts Studio',
+  description: 'Turn your YouTube long-form videos into a week of platform-ready shorts — powered by your persona.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

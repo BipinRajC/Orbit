@@ -72,7 +72,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           {!collapsed && (
             <div className="min-w-0">
-              <p className="text-sm font-black tracking-tight text-[#1a1a1a]">ContentOS</p>
+              <p className="text-sm font-black tracking-tight text-[#1a1a1a]">OrbitOS</p>
               <p className="text-[10px] font-semibold leading-tight text-[#1a1a1a]/50">Creator Studio</p>
             </div>
           )}

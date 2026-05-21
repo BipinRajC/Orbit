@@ -82,7 +82,7 @@ export default function MemoryPage() {
           <div>
             <h1 className="text-2xl font-black text-[#1a1a1a]">Memory Bank</h1>
             <p className="text-xs font-semibold text-[#1a1a1a]/45">
-              What ContentOS has learned about your creative voice
+              What OrbitOS has learned about your creator persona
             </p>
           </div>
         </div>

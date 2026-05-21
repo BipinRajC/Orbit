@@ -16,7 +16,7 @@ import { api } from "@/lib/api"
 import type { CreatorProfile } from "@/lib/types"
 import { ArrowRight, ArrowLeft, Check } from "lucide-react"
 
-const STORAGE_KEY = "contentos-onboarding-seen"
+const STORAGE_KEY = "orbitos-onboarding-seen"
 const PROGRESS_KEY = "orbitos-onboarding-progress"
 
 // Canonical style options from tags.py STYLES
