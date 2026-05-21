@@ -21,8 +21,8 @@ export interface CreatorProfile {
 
 export type ProjectStatus = 'uploaded' | 'processing' | 'ready_for_review' | 'archived'
 export type DerivativeStatus = 'draft' | 'approved' | 'rejected'
-export type Platform = 'instagram_reels' | 'youtube_shorts' | 'linkedin'
-export type ContentType = 'production_brief'
+export type Platform = 'instagram_reels' | 'youtube_shorts' | 'tiktok' | 'linkedin'
+export type ContentType = 'production_brief' | 'short_form_deliverable'
 
 export interface ProcessingLogEntry {
   stage: string
@@ -32,7 +32,6 @@ export interface ProcessingLogEntry {
 
 export interface CostLog {
   total_cost_usd: number
-  // Legacy cascadeflow fields
   total_calls?: number
   drafter_calls?: number
   verifier_calls?: number
@@ -54,7 +53,10 @@ export interface Segment {
   role: 'primary' | 'payoff' | 'bridge'
 }
 
-/** Structured production brief — stored as JSON string in derivative.content */
+// ---------------------------------------------------------------------------
+// Legacy ProductionBrief (kept for backward-compat with existing DB rows)
+// ---------------------------------------------------------------------------
+
 export interface ProductionScript {
   opening: string
   body: string
@@ -71,13 +73,27 @@ export interface ProductionBrief {
   editing_notes: string
 }
 
+// ---------------------------------------------------------------------------
+// New ShortFormDeliverable — 7 unified fields, all platforms
+// ---------------------------------------------------------------------------
+
+export interface ShortFormDeliverable {
+  title: string
+  description: string
+  caption: string
+  spoken_script: string
+  why_this_clip: string
+  visual_direction: string
+  editor_notes: string
+}
+
 export interface Derivative {
   id: string
   moment_id: string
   project_id: string
   platform: Platform
-  content_type: ContentType
-  content: string  // JSON string of ProductionBrief
+  content_type: ContentType  // both 'production_brief' and 'short_form_deliverable' supported
+  content: string            // JSON-stringified ShortFormDeliverable or legacy ProductionBrief
   status: DerivativeStatus
   generation_model: string | null
   created_at: string
@@ -117,10 +133,50 @@ export interface Project {
 }
 
 /**
- * Normalize a parsed brief JSON object to the current ProductionBrief shape.
- * Handles the old v1 format where `body` was a top-level key instead of
- * being nested under `script`, and `angle`/`editing_notes` didn't exist.
+ * Normalize any derivative (new or legacy) into a ShortFormDeliverable.
+ * New rows (content_type='short_form_deliverable') are passed through directly.
+ * Legacy rows (content_type='production_brief') are mapped from ProductionBrief shape.
  */
+export function normalizeDeliverable(raw: Derivative): ShortFormDeliverable {
+  let parsed: Record<string, unknown> = {}
+  try {
+    parsed = JSON.parse(raw.content || '{}')
+  } catch {
+    // ignore
+  }
+
+  if (raw.content_type === 'short_form_deliverable') {
+    return {
+      title:           (parsed.title           as string) || '',
+      description:     (parsed.description     as string) || '',
+      caption:         (parsed.caption         as string) || '',
+      spoken_script:   (parsed.spoken_script   as string) || '',
+      why_this_clip:   (parsed.why_this_clip   as string) || '',
+      visual_direction:(parsed.visual_direction as string) || '',
+      editor_notes:    (parsed.editor_notes    as string) || '',
+    }
+  }
+
+  // Legacy ProductionBrief mapping
+  const script = parsed.script as Record<string, string> | null | undefined
+  const scriptParts = [
+    script?.opening || '',
+    script?.body    || (parsed.body as string) || '',
+    script?.closer  || '',
+  ].filter(Boolean)
+
+  return {
+    title:           (parsed.hook            as string) || '',
+    description:     (parsed.angle           as string) || '',
+    caption:         (parsed.caption         as string) || '',
+    spoken_script:   scriptParts.join('\n\n'),
+    why_this_clip:   '',
+    visual_direction:(parsed.higgsfield_prompt as string) || '',
+    editor_notes:    (parsed.editing_notes   as string) || '',
+  }
+}
+
+/** Legacy normalizeBrief — kept so existing components don't break */
 export function normalizeBrief(raw: Record<string, unknown>): ProductionBrief {
   const script = raw.script as Record<string, string> | null | undefined
   return {
@@ -128,7 +184,6 @@ export function normalizeBrief(raw: Record<string, unknown>): ProductionBrief {
     angle:            (raw.angle            as string) ?? '',
     script: {
       opening:        script?.opening                  ?? '',
-      // v1 stored body at the top level — fall back to it if script.body is empty
       body:           script?.body ?? (raw.body        as string) ?? '',
       closer:         script?.closer                   ?? '',
     },
@@ -158,11 +213,11 @@ export type GraphNodeKind = 'root' | 'trait' | 'platform' | 'preference' | 'topi
 export interface GraphNode {
   id: string
   label: string
-  full_text?: string   // full original memory string
+  full_text?: string
   kind: GraphNodeKind
   weight: number
-  tags?: string[]       // real Hindsight tags e.g. ['editing-behaviour', 'hook']
-  mentioned_at?: string // ISO timestamp from Hindsight — used for timeline ordering
+  tags?: string[]
+  mentioned_at?: string
 }
 
 export interface GraphEdge {
