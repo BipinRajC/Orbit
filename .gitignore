@@ -2,27 +2,42 @@
 .DS_Store
 **/.DS_Store
 
+# ── Environment files — NEVER commit secrets ──────────────────────────────────
+# Root
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+.env.staging
+
+# Backend
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Frontend
+frontend/.env
+frontend/.env.*
+!frontend/.env.local.example
+# ──────────────────────────────────────────────────────────────────────────────
+
 # Python
 backend/.venv/
 backend/__pycache__/
 backend/**/__pycache__/
 backend/**/*.pyc
 backend/**/*.pyo
-backend/.env
 backend/*.egg-info/
 
 # Node / Next.js
 frontend/node_modules/
 frontend/.next/
-frontend/.env.local
-frontend/.env
 
 # Supabase
 supabase/.branches/
 supabase/.temp/
-
-#environment file
-.env
 
 # Editor
 .idea/
@@ -38,6 +53,8 @@ supabase/.temp/
 dist/
 build/
 
-# context files excluded from git
-docs/*CONTEXT*.md# Extracted clips
+# Context files (generated, not source)
+docs/*CONTEXT*.md
+
+# Extracted clips
 backend/clips/
