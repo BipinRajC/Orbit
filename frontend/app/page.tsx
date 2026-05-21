@@ -76,10 +76,10 @@ const STEPS = [
   {
     n: 2,
     title: 'Cascade AI extracts your best moments',
-    desc: 'Cascade AI clones the transcript, ranks every scene by virality, then drafts hooks, threads, and clip notes for each top moment — all in parallel.',
+    desc: 'OrbitOS splits your video into 5 time chunks, selects the 7 strongest moments (one per day of the week), and writes full platform deliverables for each — in parallel.',
     chat: {
       user: 'Continue.',
-      ai: 'Found 5 high-value moments. Top score: 94/100. Generating drafts now…',
+      ai: 'Found 7 high-value moments. Top score: 94/100. Generating shorts now…',
     },
   },
   {
@@ -328,7 +328,7 @@ export default function LandingPage() {
             transition={{ delay: 0.45 }}
             className="mt-7 text-lg font-medium text-[#1a1a1a]/80 sm:text-xl"
           >
-            OrbitOS does the content work you don&apos;t want to do.
+            OrbitOS turns your long-form YouTube videos into a week of platform-ready shorts — powered by your persona.
           </motion.p>
 
           <motion.div
@@ -560,7 +560,7 @@ export default function LandingPage() {
                 variants={{ visible: { transition: { staggerChildren: 0.02 } } }}
                 className="mt-4 text-[15px] leading-relaxed text-[#1a1a1a]"
               >
-                {Array.from('Most creators spend 6 hours repurposing a single podcast. I just dropped a YouTube URL into OrbitOS and got 5 tweets, 3 hooks, and clip notes — all in my voice. This is the future of content. 🧵').map((char, i) => (
+                {Array.from('Most creators spend 6 hours repurposing a single YouTube video. I just dropped a URL into OrbitOS and got 7 platform-ready shorts — all in my persona. This is the future of content. 🧵').map((char, i) => (
                   <motion.span
                     key={i}
                     variants={{
@@ -670,7 +670,7 @@ export default function LandingPage() {
                   variants={{ visible: { transition: { staggerChildren: 0.015 } } }}
                   className="text-[14px] leading-relaxed text-[#1a1a1a]"
                 >
-                  {Array.from('23 cheap (under $100) content growth hacks that you MUST try ❤️\n\nI repurposed a single 1hr podcast into 47 pieces of content using OrbitOS.\n\nThe result? 17,695 views in the first 4 hours.').map((char, i) => (
+                  {Array.from('23 cheap (under $100) YouTube content growth hacks you MUST try ❤️\n\nI repurposed a single 1hr YouTube video into 7 shorts using OrbitOS.\n\nThe result? 17,695 views in the first 4 hours.').map((char, i) => (
                     <motion.span
                       key={i}
                       variants={{
@@ -788,7 +788,7 @@ export default function LandingPage() {
                     variants={{ visible: { transition: { staggerChildren: 0.015 } } }}
                     className="text-[13px] leading-snug text-white/90"
                   >
-                    {Array.from('Here\'s the moment that scored 94/100 on virality. OrbitOS found it in a 1hr podcast 🎯🔥').map((char, i) => (
+                    {Array.from('Here\'s the moment that scored 94/100 on virality. OrbitOS found it in a 1hr YouTube video 🎯🔥').map((char, i) => (
                       <motion.span
                         key={i}
                         variants={{

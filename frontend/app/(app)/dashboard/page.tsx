@@ -23,25 +23,25 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 
 const CTA_LINES = [
-  { heading: 'Drop a YouTube link',          sub: '~3 min · get hooks, briefs & clip notes — ready to post' },
-  { heading: 'Turn 1 video into 7 posts',    sub: 'AI extracts your strongest moments automatically' },
-  { heading: 'Extract your best moments',    sub: 'Claude ranks every segment by virality score' },
-  { heading: 'Write platform-ready briefs',  sub: 'Instagram Reels · YouTube Shorts · LinkedIn — all at once' },
-  { heading: 'Build a week of content',      sub: 'Approve, regen, or copy each brief in one click' },
+  { heading: 'Drop a YouTube link',              sub: '~3 min · get 7 platform-ready shorts — one per day of the week' },
+  { heading: 'Turn 1 video into 7 shorts',       sub: 'AI finds the 7 best moments and writes them for every platform' },
+  { heading: 'Extract your best moments',        sub: 'OrbitOS ranks every segment by hook quality and persona fit' },
+  { heading: 'Write platform-native shorts',     sub: 'Instagram Reels · YouTube Shorts · TikTok · LinkedIn — all at once' },
+  { heading: 'Build a full week of content',     sub: 'Approve, regen, or copy each deliverable in one click' },
 ]
 
 const FEATURE_PILLS = [
   { icon: Brain,         label: 'Moment Detection' },
   { icon: Wand2,         label: 'Hook Writer' },
-  { icon: MessageCircle, label: 'Tweet Threads' },
-  { icon: Mic,           label: 'Voice Clone' },
+  { icon: MessageCircle, label: 'Short-Form Scripts' },
+  { icon: Mic,           label: 'Persona Learning' },
   { icon: TrendingUp,    label: 'Virality Scoring' },
 ]
 
 const FEATURE_CARDS = [
-  { icon: Brain,         bg: '#FFE0B2', title: 'Moment Detection', desc: 'AI finds the clips people actually want to share, ranked by virality.', stat: '3–8 per video' },
-  { icon: Wand2,         bg: '#FFCDD2', title: 'Hook Generator',   desc: '5 platform-native opening hooks per moment, written to stop the scroll.', stat: '5× faster' },
-  { icon: MessageCircle, bg: '#C8E6C9', title: 'Tweet Threads',    desc: 'Moments become tweetable threads instantly. Edit, approve, copy.',          stat: 'Seconds' },
+  { icon: Brain,         bg: '#FFE0B2', title: 'Moment Detection', desc: 'AI finds the 7 best clips from your long-form video, spread across the full runtime.', stat: '7 per video' },
+  { icon: Wand2,         bg: '#FFCDD2', title: 'Hook Generator',   desc: 'Platform-native opening hooks, captions, and scripts written to stop the scroll.', stat: '5× faster' },
+  { icon: MessageCircle, bg: '#C8E6C9', title: 'Short-Form Scripts', desc: 'Full spoken scripts with stage directions — ready to record and post.',          stat: 'Seconds' },
   { icon: Mic,           bg: '#D1C4E9', title: 'Creator Persona',    desc: 'OrbitOS learns your persona from every edit. Output gets more "you" over time.',     stat: 'Adaptive' },
 ]
 

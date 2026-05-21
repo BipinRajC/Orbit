@@ -7,11 +7,11 @@ import { PlatformSelector } from './platform-selector'
 
 const PLACEHOLDER_EXAMPLES = [
   'youtube.com/watch?v=dQw4w9WgXcQ',
-  'Drop a podcast, keynote, or interview...',
+  'Paste any public YouTube URL…',
   'youtu.be/jNQXAC9IVRw',
-  'Any public YouTube URL works',
-  'youtube.com/@mkbhd/videos',
-  'Turn a long video into a week of content',
+  'Turn a long YouTube video into a week of shorts',
+  'youtube.com/watch?v=…',
+  'Drop a YouTube link — we do the rest',
 ]
 
 function useTypingPlaceholder(active: boolean) {
@@ -68,7 +68,7 @@ function useTypingPlaceholder(active: boolean) {
   return { display, cursor }
 }
 
-const ALL_PLATFORMS: Platform[] = ['instagram_reels', 'youtube_shorts', 'linkedin']
+const ALL_PLATFORMS: Platform[] = ['instagram_reels', 'youtube_shorts', 'tiktok', 'linkedin']
 
 const GOALS = [
   { value: 'grow_followers', label: 'Grow followers' },

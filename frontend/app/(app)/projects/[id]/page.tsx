@@ -200,8 +200,11 @@ export default function ProjectPage() {
           <div className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-zinc-500" />
             <h2 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
-              {project.moments.length} moment{project.moments.length !== 1 ? 's' : ''}
+              {project.moments.length} moment{project.moments.length !== 1 ? 's' : ''} extracted
             </h2>
+            <span className="text-[10px] font-semibold text-zinc-600 border border-zinc-700 rounded-full px-2 py-0.5">
+              7 moments · 1 per day of the week
+            </span>
           </div>
           {project.moments.map((moment, i) => (
             <MomentGroup key={moment.id} moment={moment} index={i} sourceUrl={project.source_url} />
