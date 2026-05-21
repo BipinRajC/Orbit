@@ -235,7 +235,7 @@ export default function MemoryPage() {
                     'grid grid-cols-[1fr_110px_120px_90px] items-center border-b border-[#1a1a1a]/10 px-5 py-3 last:border-b-0',
                     i % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F0]',
                   )}>
-                  <span className="truncate pr-3 text-sm font-semibold text-[#1a1a1a]">{node.label}</span>
+                  <span className="pr-3 text-sm font-semibold text-[#1a1a1a]">{node.full_text || node.label}</span>
                   <span className="inline-flex w-fit items-center rounded-full border border-[#1a1a1a]/20 px-2.5 py-0.5 text-[10px] font-bold capitalize"
                     style={{ background: c.fill, color: c.text }}>
                     {node.kind}
