@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-
-export type Platform = 'instagram_reels' | 'youtube_shorts' | 'linkedin'
+import type { Platform } from '@/lib/types'
 
 const PLATFORMS: { value: Platform; label: string; icon: string }[] = [
   { value: 'instagram_reels', label: 'Instagram Reels', icon: '◎' },
-  { value: 'youtube_shorts', label: 'YouTube Shorts', icon: '▶' },
-  { value: 'linkedin',       label: 'LinkedIn',        icon: '◆' },
+  { value: 'youtube_shorts', label: 'YouTube Shorts',  icon: '▶' },
+  { value: 'tiktok',          label: 'TikTok',          icon: '♪' },
+  { value: 'linkedin',        label: 'LinkedIn',        icon: '◆' },
 ]
 
 interface Props {
