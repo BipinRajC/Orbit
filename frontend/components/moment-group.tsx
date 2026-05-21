@@ -2,9 +2,8 @@
 
 import { useState } from 'react'
 import type { Moment, Derivative } from '@/lib/types'
-import { ProductionBriefTable } from './production-brief-table'
+import { DeliverableCard } from './deliverable-card'
 import { VideoClipPreview } from './video-clip-preview'
-import { DraftEditor } from './draft-editor'
 
 interface Props {
   moment: Moment
@@ -27,76 +26,70 @@ export function MomentGroup({ moment, index, sourceUrl }: Props) {
 
   const scorePercent = Math.round(moment.strength_score * 100)
 
-  // Separate production briefs from legacy derivatives
-  const productionBriefs = derivatives.filter(d => d.content_type === 'production_brief')
-  const legacyDerivatives = derivatives.filter(d => d.content_type !== 'production_brief')
+  // Sort deliverables by platform display order
+  const platformOrder = ['instagram_reels', 'youtube_shorts', 'tiktok', 'linkedin']
+  const sortedDerivatives = [...derivatives].sort(
+    (a, b) => platformOrder.indexOf(a.platform) - platformOrder.indexOf(b.platform)
+  )
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
+    <div className="rounded-xl border-2 border-[#1a1a1a] bg-white shadow-[4px_4px_0_#1a1a1a]">
       {/* Moment header */}
-      <div className="border-b border-zinc-100 p-5">
+      <div className="border-b-2 border-[#1a1a1a] bg-[#FAF7F0] px-5 py-4">
         <div className="flex items-start gap-4">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-zinc-700 to-zinc-900 text-xs font-bold text-white">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[#1a1a1a] bg-[#FF8A65] text-xs font-black text-white shadow-[2px_2px_0_#1a1a1a]">
             {index + 1}
           </div>
           <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-zinc-400">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-xs font-bold text-[#1a1a1a]/60">
                 {formatTime(moment.start_timestamp)} — {formatTime(moment.end_timestamp)}
               </span>
-              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+              <span className="rounded-full border border-[#1a1a1a] bg-[#A5D6A7] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#1a1a1a]">
                 {scorePercent}% strength
               </span>
             </div>
-            <blockquote className="mt-2 text-sm leading-relaxed text-zinc-700 italic">
+            <blockquote className="mt-2 text-sm leading-relaxed text-[#1a1a1a]/80 italic">
               &ldquo;{moment.transcript_snippet}&rdquo;
             </blockquote>
-            <p className="mt-1.5 text-xs text-zinc-400">
-              {moment.selection_rationale}
-            </p>
+            {moment.selection_rationale && (
+              <p className="mt-1.5 text-xs text-[#1a1a1a]/50">
+                {moment.selection_rationale}
+              </p>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Production Brief Table (new format) */}
-      {productionBriefs.length > 0 && (
-        <div className="p-5">
-          <ProductionBriefTable
-            derivatives={productionBriefs}
-            onUpdate={handleDerivativeUpdate}
-          />
-        </div>
-      )}
-
-      {/* Legacy derivatives (old format — backwards compatible) */}
-      {legacyDerivatives.length > 0 && (
-        <div className="grid gap-3 p-5 sm:grid-cols-2">
-          {legacyDerivatives.map(d => (
-            <DraftEditor
-              key={d.id}
-              derivative={d}
-              onUpdate={handleDerivativeUpdate}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Empty state */}
-      {derivatives.length === 0 && (
-        <div className="p-5">
-          <p className="text-sm text-zinc-400">No derivatives generated yet.</p>
-        </div>
-      )}
-
-      {/* Video clip preview — below the table */}
-      <div className="border-t border-zinc-100 p-5">
+      {/* Video clip preview */}
+      <div className="border-b-2 border-[#1a1a1a] px-5 py-4">
         <VideoClipPreview
           sourceUrl={sourceUrl}
           startSeconds={moment.start_timestamp}
           endSeconds={moment.end_timestamp}
           clipUrl={moment.clip_url}
+          projectId={moment.project_id}
+          momentId={moment.id}
         />
       </div>
+
+      {/* Deliverable cards — one per platform */}
+      {sortedDerivatives.length > 0 ? (
+        <div className="grid gap-5 p-5 sm:grid-cols-2">
+          {sortedDerivatives.map(d => (
+            <DeliverableCard
+              key={d.id}
+              derivative={d}
+              onUpdate={handleDerivativeUpdate}
+              momentTitle={moment.transcript_snippet?.slice(0, 60)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="p-5">
+          <p className="text-sm text-[#1a1a1a]/40">No deliverables generated yet.</p>
+        </div>
+      )}
     </div>
   )
 }

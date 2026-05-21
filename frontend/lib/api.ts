@@ -98,11 +98,16 @@ export const api = {
     reject: (id: string): Promise<Derivative> =>
       request(`/derivatives/${id}/reject`, { method: 'POST' }),
 
-    regenerate: (id: string, guidance?: string): Promise<Derivative> =>
+    regenerate: (id: string, guidance?: string, section?: string): Promise<Derivative> =>
       request(`/derivatives/${id}/regenerate`, {
         method: 'POST',
-        body: JSON.stringify({ guidance: guidance ?? null }),
+        body: JSON.stringify({ guidance: guidance ?? null, section: section ?? null }),
       }),
+  },
+
+  clips: {
+    exportVertical: (projectId: string, momentId: string): Promise<{ url: string }> =>
+      request(`/clips/${projectId}/${momentId}/export`, { method: 'POST' }),
   },
 
   profile: {
