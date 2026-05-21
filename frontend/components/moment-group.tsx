@@ -75,7 +75,7 @@ export function MomentGroup({ moment, index, sourceUrl }: Props) {
 
       {/* Deliverable cards — one per platform */}
       {sortedDerivatives.length > 0 ? (
-        <div className="grid gap-5 p-5 sm:grid-cols-2">
+        <div className={`grid gap-5 p-5${sortedDerivatives.length > 1 ? ' sm:grid-cols-2' : ''}`}>
           {sortedDerivatives.map(d => (
             <DeliverableCard
               key={d.id}
