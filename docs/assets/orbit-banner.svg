@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">OrbitOS banner</title>
+  <desc id="desc">A hero banner for OrbitOS showing video input, the AI pipeline, and the creator memory loop.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fdfaf2" />
+      <stop offset="100%" stop-color="#f6efe3" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#9575cd" />
+      <stop offset="100%" stop-color="#ff8a65" />
+    </linearGradient>
+    <linearGradient id="cardA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f9f5ef" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#1a1a1a" flood-opacity="0.12" />
+    </filter>
+    <clipPath id="logoOverlayClip">
+      <ellipse cx="1368" cy="96" rx="126" ry="92" />
+    </clipPath>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)" />
+  <circle cx="1320" cy="140" r="180" fill="#9575cd" opacity="0.12" />
+  <circle cx="220" cy="760" r="220" fill="#ff8a65" opacity="0.10" />
+  <circle cx="1480" cy="760" r="120" fill="#a5d6a7" opacity="0.18" />
+
+  <image href="orbitos-logo.png" x="1088" y="26" width="560" height="234" preserveAspectRatio="xMidYMid meet" clip-path="url(#logoOverlayClip)" filter="url(#shadow)" />
+
+  <rect x="78" y="88" width="244" height="34" rx="17" fill="#1a1a1a" />
+  <text x="200" y="111" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" text-anchor="middle" fill="#faf7f0">Creator Operating System</text>
+
+  <text x="78" y="220" font-family="Arial, Helvetica, sans-serif" font-size="78" font-weight="800" fill="#1a1a1a">OrbitOS</text>
+  <text x="78" y="282" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="600" fill="#463f3a">Turn one YouTube video into ranked clips,</text>
+  <text x="78" y="316" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="600" fill="#463f3a">production briefs, and creator memory</text>
+  <text x="78" y="350" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="600" fill="#463f3a">that compounds over time.</text>
+
+  <text x="78" y="384" font-family="Arial, Helvetica, sans-serif" font-size="19" fill="#5f5954">Seven-stage pipeline plus review-driven learning.</text>
+
+  <g filter="url(#shadow)">
+    <rect x="78" y="404" width="620" height="336" rx="28" fill="url(#cardA)" stroke="#1a1a1a" stroke-width="2.5" />
+  </g>
+
+  <text x="118" y="454" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="800" fill="#1a1a1a">One input becomes a week of output</text>
+  <text x="118" y="488" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#635c56">Paste a YouTube URL, let OrbitOS process it, then review platform-native drafts.</text>
+
+  <g font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700">
+    <rect x="118" y="530" width="150" height="44" rx="22" fill="#ffd180" />
+    <text x="193" y="558" text-anchor="middle" fill="#1a1a1a">1. Ingest</text>
+
+    <rect x="286" y="530" width="170" height="44" rx="22" fill="#a5d6a7" />
+    <text x="371" y="558" text-anchor="middle" fill="#1a1a1a">2. Transcribe</text>
+
+    <rect x="476" y="530" width="160" height="44" rx="22" fill="#b39ddb" />
+    <text x="556" y="558" text-anchor="middle" fill="#faf7f0">3. Recall</text>
+
+    <rect x="118" y="594" width="170" height="44" rx="22" fill="#ffab91" />
+    <text x="203" y="622" text-anchor="middle" fill="#1a1a1a">4. Extract</text>
+
+    <rect x="308" y="594" width="136" height="44" rx="22" fill="#90caf9" />
+    <text x="376" y="622" text-anchor="middle" fill="#1a1a1a">5. Clip</text>
+
+    <rect x="462" y="594" width="174" height="44" rx="22" fill="#c5e1a5" />
+    <text x="549" y="622" text-anchor="middle" fill="#1a1a1a">6. Generate</text>
+
+    <rect x="118" y="658" width="230" height="44" rx="22" fill="#ef9a9a" />
+    <text x="233" y="686" text-anchor="middle" fill="#1a1a1a">7. Review and learn</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="720" y="132" width="790" height="608" rx="36" fill="#ffffff" stroke="#1a1a1a" stroke-width="2.5" />
+  </g>
+
+  <text x="774" y="192" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="800" fill="#1a1a1a">The OrbitOS loop</text>
+  <text x="774" y="226" font-family="Arial, Helvetica, sans-serif" font-size="19" fill="#5f5954">Personalization does not happen in settings alone. It happens in review.</text>
+
+  <g>
+    <rect x="774" y="270" width="308" height="108" rx="24" fill="#faf7f0" stroke="#1a1a1a" stroke-width="2" />
+    <text x="802" y="312" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="800" fill="#1a1a1a">Creator profile</text>
+    <text x="802" y="342" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#5f5954">niche, platform, styles, audience,</text>
+    <text x="802" y="366" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#5f5954">hook length, never-use list</text>
+
+    <rect x="1130" y="270" width="308" height="108" rx="24" fill="#f3eefc" stroke="#1a1a1a" stroke-width="2" />
+    <text x="1158" y="312" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="800" fill="#1a1a1a">Hindsight recall + reflect</text>
+    <text x="1158" y="342" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#5f5954">query creator context and</text>
+    <text x="1158" y="366" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#5f5954">inject memory into prompts</text>
+
+    <rect x="774" y="448" width="308" height="116" rx="24" fill="#fff2ec" stroke="#1a1a1a" stroke-width="2" />
+    <text x="802" y="490" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="800" fill="#1a1a1a">Review and feedback</text>
+    <text x="802" y="520" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#5f5954">edit, approve, reject, regenerate</text>
+    <text x="802" y="544" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#5f5954">on real clips and briefs</text>
+
+    <rect x="1130" y="448" width="308" height="116" rx="24" fill="#eef8ef" stroke="#1a1a1a" stroke-width="2" />
+    <text x="1158" y="490" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="800" fill="#1a1a1a">Memory synthesis</text>
+    <text x="1158" y="520" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#5f5954">retain diff observations and</text>
+    <text x="1158" y="544" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#5f5954">store review insights for next time</text>
+  </g>
+
+  <path d="M1082 324 C1104 324 1110 324 1130 324" fill="none" stroke="url(#accent)" stroke-width="8" stroke-linecap="round" />
+  <polygon points="1126,312 1148,324 1126,336" fill="#ff8a65" />
+  <path d="M1284 378 C1284 410 1284 418 1284 448" fill="none" stroke="url(#accent)" stroke-width="8" stroke-linecap="round" />
+  <polygon points="1272,444 1284,466 1296,444" fill="#ff8a65" />
+  <path d="M1130 506 C1108 506 1104 506 1082 506" fill="none" stroke="url(#accent)" stroke-width="8" stroke-linecap="round" />
+  <polygon points="1086,494 1064,506 1086,518" fill="#9575cd" />
+  <path d="M928 448 C928 418 928 408 928 378" fill="none" stroke="url(#accent)" stroke-width="8" stroke-linecap="round" />
+  <polygon points="916,382 928,360 940,382" fill="#9575cd" />
+
+  <rect x="820" y="614" width="540" height="84" rx="24" fill="#1a1a1a" />
+  <text x="1090" y="648" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="800" text-anchor="middle" fill="#faf7f0">The first review teaches OrbitOS your creative voice.</text>
+  <text x="1090" y="678" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="800" text-anchor="middle" fill="#faf7f0">The next project comes back adapted to it.</text>
+</svg>

@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1600" role="img" aria-labelledby="title desc">
+  <title id="title">OrbitOS processing flow</title>
+  <desc id="desc">Large processing flow diagram showing the seven-stage OrbitOS pipeline from YouTube URL to review and memory synthesis.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fcf8ef" />
+      <stop offset="100%" stop-color="#f6eee1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#1a1a1a" flood-opacity="0.12" />
+    </filter>
+  </defs>
+
+  <rect width="1400" height="1600" fill="url(#bg)" />
+  <circle cx="1170" cy="190" r="120" fill="#9575cd" opacity="0.10" />
+  <circle cx="180" cy="1450" r="160" fill="#ff8a65" opacity="0.10" />
+
+  <text x="88" y="108" font-family="Arial, Helvetica, sans-serif" font-size="50" font-weight="800" fill="#1a1a1a">OrbitOS processing flow</text>
+
+  <g filter="url(#shadow)" font-family="Arial, Helvetica, sans-serif">
+    <rect x="180" y="182" width="1040" height="124" rx="28" fill="#ffffff" stroke="#1a1a1a" stroke-width="2.5" />
+    <rect x="180" y="340" width="1040" height="148" rx="28" fill="#ffffff" stroke="#1a1a1a" stroke-width="2.5" />
+    <rect x="220" y="522" width="390" height="82" rx="22" fill="#f3eefc" stroke="#1a1a1a" stroke-width="2" />
+    <rect x="790" y="522" width="390" height="82" rx="22" fill="#fff2ec" stroke="#1a1a1a" stroke-width="2" />
+    <rect x="180" y="646" width="1040" height="132" rx="28" fill="#ffffff" stroke="#1a1a1a" stroke-width="2.5" />
+    <rect x="180" y="812" width="1040" height="132" rx="28" fill="#ffffff" stroke="#1a1a1a" stroke-width="2.5" />
+    <rect x="180" y="978" width="1040" height="124" rx="28" fill="#ffffff" stroke="#1a1a1a" stroke-width="2.5" />
+    <rect x="180" y="1136" width="1040" height="124" rx="28" fill="#ffffff" stroke="#1a1a1a" stroke-width="2.5" />
+    <rect x="180" y="1294" width="1040" height="156" rx="28" fill="#ffffff" stroke="#1a1a1a" stroke-width="2.5" />
+  </g>
+
+  <g font-family="Arial, Helvetica, sans-serif">
+    <g>
+      <circle cx="242" cy="244" r="28" fill="#ffd180" stroke="#1a1a1a" stroke-width="2" />
+      <text x="242" y="252" text-anchor="middle" font-size="22" font-weight="800" fill="#1a1a1a">1</text>
+      <text x="292" y="232" font-size="28" font-weight="800" fill="#1a1a1a">Ingest</text>
+      <text x="292" y="266" font-size="19" fill="#5f5954">Paste a YouTube URL. OrbitOS fetches captions first</text>
+      <text x="292" y="292" font-size="19" fill="#5f5954">and falls back to audio download when needed.</text>
+    </g>
+
+    <g>
+      <circle cx="242" cy="402" r="28" fill="#a5d6a7" stroke="#1a1a1a" stroke-width="2" />
+      <text x="242" y="410" text-anchor="middle" font-size="22" font-weight="800" fill="#1a1a1a">2</text>
+      <text x="292" y="390" font-size="28" font-weight="800" fill="#1a1a1a">Transcribe</text>
+      <text x="292" y="424" font-size="19" fill="#5f5954">If captions exist, OrbitOS uses them. Otherwise it</text>
+      <text x="292" y="450" font-size="19" fill="#5f5954">downloads audio and transcribes with Groq Whisper.</text>
+      <text x="292" y="476" font-size="19" fill="#5f5954">Both paths produce timestamped segments for the pipeline.</text>
+    </g>
+
+    <g>
+      <text x="415" y="554" text-anchor="middle" font-size="20" font-weight="800" fill="#1a1a1a">Captions found</text>
+      <text x="415" y="580" text-anchor="middle" font-size="18" fill="#5f5954">use YouTube transcript</text>
+      <text x="985" y="554" text-anchor="middle" font-size="20" font-weight="800" fill="#1a1a1a">No captions</text>
+      <text x="985" y="580" text-anchor="middle" font-size="18" fill="#5f5954">transcribe with Groq Whisper</text>
+    </g>
+
+    <g>
+      <circle cx="242" cy="708" r="28" fill="#9575cd" stroke="#1a1a1a" stroke-width="2" />
+      <text x="242" y="716" text-anchor="middle" font-size="22" font-weight="800" fill="#faf7f0">3</text>
+      <text x="292" y="696" font-size="28" font-weight="800" fill="#1a1a1a">Recall</text>
+      <text x="292" y="730" font-size="19" fill="#5f5954">Hindsight `recall()` and `reflect()` pull creator voice,</text>
+      <text x="292" y="756" font-size="19" fill="#5f5954">hook preferences, and edit history into the current</text>
+      <text x="292" y="782" font-size="19" fill="#5f5954">project context before generation begins.</text>
+    </g>
+
+    <g>
+      <circle cx="242" cy="874" r="28" fill="#ffab91" stroke="#1a1a1a" stroke-width="2" />
+      <text x="242" y="882" text-anchor="middle" font-size="22" font-weight="800" fill="#1a1a1a">4</text>
+      <text x="292" y="862" font-size="28" font-weight="800" fill="#1a1a1a">Extract</text>
+      <text x="292" y="896" font-size="19" fill="#5f5954">Claude Haiku 4.5 identifies 3-5 strong moments with</text>
+      <text x="292" y="922" font-size="19" fill="#5f5954">timestamps, narrative summaries, hook potential,</text>
+      <text x="292" y="948" font-size="19" fill="#5f5954">and strength scores.</text>
+    </g>
+
+    <g>
+      <circle cx="242" cy="1040" r="28" fill="#90caf9" stroke="#1a1a1a" stroke-width="2" />
+      <text x="242" y="1048" text-anchor="middle" font-size="22" font-weight="800" fill="#1a1a1a">5</text>
+      <text x="292" y="1028" font-size="28" font-weight="800" fill="#1a1a1a">Clip</text>
+      <text x="292" y="1062" font-size="19" fill="#5f5954">yt-dlp downloads the chosen segments. ffmpeg then</text>
+      <text x="292" y="1088" font-size="19" fill="#5f5954">stitches and crops them into 9:16 MP4 clips in parallel.</text>
+    </g>
+
+    <g>
+      <circle cx="242" cy="1198" r="28" fill="#c5e1a5" stroke="#1a1a1a" stroke-width="2" />
+      <text x="242" y="1206" text-anchor="middle" font-size="22" font-weight="800" fill="#1a1a1a">6</text>
+      <text x="292" y="1186" font-size="28" font-weight="800" fill="#1a1a1a">Generate</text>
+      <text x="292" y="1220" font-size="19" fill="#5f5954">Claude Sonnet 4.5 writes production briefs for</text>
+      <text x="292" y="1246" font-size="19" fill="#5f5954">Instagram Reels, YouTube Shorts, and LinkedIn.</text>
+    </g>
+
+    <g>
+      <circle cx="242" cy="1340" r="28" fill="#ef9a9a" stroke="#1a1a1a" stroke-width="2" />
+      <text x="242" y="1348" text-anchor="middle" font-size="22" font-weight="800" fill="#1a1a1a">7</text>
+      <text x="292" y="1328" font-size="28" font-weight="800" fill="#1a1a1a">Persist, review, learn</text>
+      <text x="292" y="1362" font-size="19" fill="#5f5954">Supabase stores projects, moments, derivatives, clips,</text>
+      <text x="292" y="1388" font-size="19" fill="#5f5954">and editing events. Completing review writes fresh</text>
+      <text x="292" y="1414" font-size="19" fill="#5f5954">observations back to Hindsight for the next run.</text>
+      <text x="292" y="1440" font-size="18" font-weight="700" fill="#ff8a65">This is where baseline turns into adaptation.</text>
+    </g>
+  </g>
+
+  <g stroke="#1a1a1a" stroke-width="8" stroke-linecap="round" fill="none">
+    <path d="M700 306 V340" />
+    <path d="M700 488 V522" />
+    <path d="M700 604 V646" />
+    <path d="M700 778 V812" />
+    <path d="M700 944 V978" />
+    <path d="M700 1102 V1136" />
+    <path d="M700 1260 V1294" />
+  </g>
+
+  <g fill="#1a1a1a">
+    <polygon points="688,324 700,346 712,324" />
+    <polygon points="688,506 700,528 712,506" />
+    <polygon points="688,630 700,652 712,630" />
+    <polygon points="688,796 700,818 712,796" />
+    <polygon points="688,962 700,984 712,962" />
+    <polygon points="688,1120 700,1142 712,1120" />
+    <polygon points="688,1278 700,1300 712,1278" />
+  </g>
+
+  <path d="M700 1452 C700 1530 1018 1530 1018 1302" fill="none" stroke="#9575cd" stroke-width="8" stroke-linecap="round" />
+  <polygon points="1006,1310 1018,1288 1030,1310" fill="#9575cd" />
+  <text x="1074" y="1490" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="#9575cd">New memory loops back into the next recall stage</text>
+</svg>

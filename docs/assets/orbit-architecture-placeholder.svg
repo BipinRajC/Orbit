@@ -1,0 +1,230 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1680 790" role="img" aria-labelledby="title desc">
+  <title id="title">OrbitOS architecture</title>
+  <desc id="desc">OrbitOS v3-mvp architecture showing the seven-stage pipeline, review loop, and supporting runtime infrastructure.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fdfaf2" />
+      <stop offset="100%" stop-color="#f5ede0" />
+    </linearGradient>
+    <linearGradient id="ingest" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffe1a8" />
+      <stop offset="100%" stop-color="#ffd58c" />
+    </linearGradient>
+    <linearGradient id="transcribe" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffc3cd" />
+      <stop offset="100%" stop-color="#f7b8c7" />
+    </linearGradient>
+    <linearGradient id="recall" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#d6c6f4" />
+      <stop offset="100%" stop-color="#c7b7ed" />
+    </linearGradient>
+    <linearGradient id="extract" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#d4f0c9" />
+      <stop offset="100%" stop-color="#c1e4be" />
+    </linearGradient>
+    <linearGradient id="clip" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c0e6fb" />
+      <stop offset="100%" stop-color="#aed9f8" />
+    </linearGradient>
+    <linearGradient id="generate" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffd995" />
+      <stop offset="100%" stop-color="#ffcf7d" />
+    </linearGradient>
+    <linearGradient id="review" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff9d7a" />
+      <stop offset="100%" stop-color="#ff855f" />
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#1a1a1a" flood-opacity="0.08" />
+    </filter>
+  </defs>
+
+  <rect width="1680" height="790" fill="url(#bg)" />
+  <circle cx="1540" cy="120" r="110" fill="#c8b8ef" opacity="0.14" />
+  <circle cx="140" cy="700" r="120" fill="#ffd4bd" opacity="0.25" />
+
+  <rect x="14" y="14" width="1652" height="72" rx="8" fill="#1d1d1d" />
+  <text x="52" y="61" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="28" font-weight="800" fill="#ffffff">OrbitOS Architecture</text>
+  <text x="1588" y="58" text-anchor="end" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="17" font-weight="700" fill="#98a0ad">v3-mvp runtime + memory feedback loop</text>
+
+  <text x="18" y="118" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="24" font-weight="700" fill="#a3a3a3">PROCESSING PIPELINE</text>
+  <line x1="18" y1="488" x2="1602" y2="488" stroke="#d5cdc2" stroke-width="2" />
+  <text x="18" y="462" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="24" font-weight="700" fill="#a3a3a3">INFRASTRUCTURE</text>
+
+  <g filter="url(#shadow)" font-family="SFMono-Regular, Menlo, Consolas, monospace">
+    <rect x="70" y="144" width="180" height="202" rx="24" fill="url(#ingest)" stroke="#252525" stroke-width="3" />
+    <rect x="270" y="144" width="180" height="202" rx="24" fill="url(#transcribe)" stroke="#252525" stroke-width="3" />
+    <rect x="470" y="144" width="180" height="202" rx="24" fill="url(#recall)" stroke="#252525" stroke-width="3" />
+    <rect x="670" y="144" width="180" height="202" rx="24" fill="url(#extract)" stroke="#252525" stroke-width="3" />
+    <rect x="870" y="144" width="180" height="202" rx="24" fill="url(#clip)" stroke="#252525" stroke-width="3" />
+    <rect x="1070" y="144" width="180" height="202" rx="24" fill="url(#generate)" stroke="#252525" stroke-width="3" />
+    <rect x="1270" y="144" width="180" height="202" rx="24" fill="url(#review)" stroke="#252525" stroke-width="3" />
+
+    <rect x="40" y="512" width="370" height="242" rx="34" fill="#9474cf" stroke="#252525" stroke-width="3" />
+    <rect x="450" y="512" width="370" height="242" rx="34" fill="#ffd27d" stroke="#252525" stroke-width="3" />
+    <rect x="860" y="512" width="370" height="242" rx="34" fill="#c9e5c5" stroke="#252525" stroke-width="3" />
+    <rect x="1270" y="512" width="330" height="242" rx="34" fill="#f5c2ca" stroke="#252525" stroke-width="3" />
+  </g>
+
+  <g font-family="SFMono-Regular, Menlo, Consolas, monospace" fill="#252525">
+    <text x="88" y="170" font-size="15" font-weight="700" fill="#6d6d6d">01</text>
+    <text x="88" y="202" font-size="18" font-weight="800">INGEST</text>
+    <text x="88" y="307" font-size="14" font-weight="700" fill="#666666">YouTube URL</text>
+    <text x="88" y="329" font-size="14" font-weight="700" fill="#666666">captions / audio fetch</text>
+
+    <text x="288" y="170" font-size="15" font-weight="700" fill="#6d6d6d">02</text>
+    <text x="288" y="202" font-size="18" font-weight="800">TRANSCRIBE</text>
+    <text x="288" y="307" font-size="14" font-weight="700" fill="#666666">Groq Whisper</text>
+    <text x="288" y="329" font-size="14" font-weight="700" fill="#666666">timestamped segments</text>
+
+    <text x="488" y="170" font-size="15" font-weight="700" fill="#6d6d6d">03</text>
+    <text x="488" y="202" font-size="18" font-weight="800">RECALL</text>
+    <text x="488" y="307" font-size="14" font-weight="700" fill="#666666">Hindsight memory</text>
+    <text x="488" y="329" font-size="14" font-weight="700" fill="#666666">recall() + reflect()</text>
+
+    <text x="688" y="170" font-size="15" font-weight="700" fill="#6d6d6d">04</text>
+    <text x="688" y="202" font-size="18" font-weight="800">EXTRACT</text>
+    <text x="688" y="307" font-size="14" font-weight="700" fill="#666666">Claude Haiku 4.5</text>
+    <text x="688" y="329" font-size="14" font-weight="700" fill="#666666">moment selection</text>
+
+    <text x="888" y="170" font-size="15" font-weight="700" fill="#6d6d6d">05</text>
+    <text x="888" y="202" font-size="18" font-weight="800">CLIP</text>
+    <text x="888" y="307" font-size="14" font-weight="700" fill="#666666">yt-dlp + ffmpeg</text>
+    <text x="888" y="329" font-size="14" font-weight="700" fill="#666666">9:16 vertical crop</text>
+
+    <text x="1088" y="170" font-size="15" font-weight="700" fill="#6d6d6d">06</text>
+    <text x="1088" y="202" font-size="18" font-weight="800">GENERATE</text>
+    <text x="1088" y="307" font-size="14" font-weight="700" fill="#666666">Claude Sonnet 4.5</text>
+    <text x="1088" y="329" font-size="14" font-weight="700" fill="#666666">production briefs</text>
+
+    <text x="1288" y="170" font-size="15" font-weight="700" fill="#6d6d6d">07</text>
+    <text x="1288" y="202" font-size="18" font-weight="800">REVIEW</text>
+    <text x="1288" y="307" font-size="14" font-weight="700" fill="#666666">edit / approve / reject</text>
+    <text x="1288" y="329" font-size="14" font-weight="700" fill="#666666">regenerate in studio</text>
+
+    <text x="62" y="548" font-size="20" font-weight="800" fill="#ffffff">HINDSIGHT MEMORY BANK</text>
+    <text x="62" y="588" font-size="14" font-weight="700" fill="#f5efff">retain() / recall() / reflect()</text>
+    <text x="62" y="614" font-size="14" font-weight="700" fill="#f5efff">bank: orbit-os | budget: mid / low</text>
+    <text x="62" y="640" font-size="14" font-weight="700" fill="#f5efff">tags: editing-behaviour, platform, tone</text>
+    <rect x="82" y="664" width="286" height="48" rx="12" fill="#0c96c0" opacity="0.92" />
+    <text x="225" y="696" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff">creator memory surface</text>
+
+    <text x="472" y="548" font-size="20" font-weight="800">CASCADEFLOW SURFACE</text>
+    <text x="472" y="588" font-size="14" font-weight="700" fill="#5d4f35">review synthesis agent</text>
+    <text x="472" y="614" font-size="14" font-weight="700" fill="#5d4f35">quality thresholds: 0.5 / 0.65 / 0.8</text>
+    <text x="472" y="640" font-size="14" font-weight="700" fill="#5d4f35">cost telemetry + legacy routing fields</text>
+    <text x="635" y="699" text-anchor="middle" font-size="26" font-weight="800" fill="#1f1f1f">memory synthesis + cost panel</text>
+
+    <text x="882" y="548" font-size="20" font-weight="800">SUPABASE</text>
+    <text x="882" y="588" font-size="14" font-weight="700" fill="#4d5a4d">projects / moments / derivatives</text>
+    <text x="882" y="614" font-size="14" font-weight="700" fill="#4d5a4d">editing events / creator profiles</text>
+    <text x="882" y="640" font-size="14" font-weight="700" fill="#4d5a4d">status polling + review persistence</text>
+    <rect x="882" y="666" width="260" height="50" rx="12" fill="#ffffff" opacity="0.88" />
+    <text x="1012" y="699" text-anchor="middle" font-size="22" font-weight="800" fill="#1f1f1f">operational state</text>
+
+    <text x="1292" y="548" font-size="20" font-weight="800">MODEL LAYER</text>
+    <text x="1292" y="588" font-size="14" font-weight="700" fill="#6d5458">Claude Haiku 4.5  extract moments</text>
+    <text x="1292" y="614" font-size="14" font-weight="700" fill="#6d5458">Claude Sonnet 4.5 generate briefs</text>
+    <text x="1292" y="640" font-size="14" font-weight="700" fill="#6d5458">Groq Whisper         transcription</text>
+    <rect x="1310" y="666" width="118" height="52" rx="10" fill="#ea7b53" opacity="0.95" />
+    <rect x="1460" y="666" width="108" height="52" rx="10" fill="#f45c1a" opacity="0.95" />
+    <text x="1369" y="699" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff">Anthropic</text>
+    <text x="1514" y="699" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff">Groq</text>
+  </g>
+
+  <g stroke="#232323" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M263 245 H298" />
+    <path d="M463 245 H498" />
+    <path d="M663 245 H698" />
+    <path d="M863 245 H898" />
+    <path d="M1063 245 H1098" />
+    <path d="M1263 245 H1298" />
+  </g>
+  <g fill="#232323">
+    <polygon points="289,234 307,245 289,256" />
+    <polygon points="489,234 507,245 489,256" />
+    <polygon points="689,234 707,245 689,256" />
+    <polygon points="889,234 907,245 889,256" />
+    <polygon points="1089,234 1107,245 1089,256" />
+    <polygon points="1289,234 1307,245 1289,256" />
+  </g>
+
+  <g stroke="#1f1f1f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <rect x="102" y="214" width="74" height="58" rx="4" />
+    <line x1="102" y1="227" x2="176" y2="227" />
+    <circle cx="114" cy="220" r="2" fill="#1f1f1f" />
+    <circle cx="122" cy="220" r="2" fill="#1f1f1f" />
+    <polygon points="130,238 130,262 152,250" fill="#ff6e4a" />
+    <circle cx="190" cy="268" r="14" />
+    <path d="M190 260 V273" />
+    <path d="M183 268 H190 L196 261" />
+
+    <path d="M325 238 V268" />
+    <path d="M314 238 C314 228 321 220 331 220 C341 220 348 228 348 238 V268" />
+    <path d="M317 271 C323 277 339 277 345 271" />
+    <line x1="360" y1="235" x2="360" y2="268" />
+    <line x1="372" y1="242" x2="372" y2="262" />
+    <line x1="384" y1="238" x2="384" y2="266" />
+    <rect x="395" y="222" width="40" height="56" rx="4" />
+    <line x1="405" y1="234" x2="425" y2="234" />
+    <line x1="405" y1="246" x2="425" y2="246" />
+    <line x1="405" y1="258" x2="425" y2="258" />
+
+    <circle cx="533" cy="248" r="10" />
+    <circle cx="566" cy="232" r="10" />
+    <circle cx="597" cy="248" r="10" />
+    <circle cx="537" cy="279" r="10" />
+    <circle cx="565" cy="294" r="10" />
+    <circle cx="592" cy="279" r="10" />
+    <path d="M553 230 C549 247 551 266 559 283" />
+    <path d="M578 230 C584 245 584 265 576 281" />
+    <path d="M602 260 C615 266 620 278 618 292" />
+    <path d="M619 292 C611 300 600 302 589 297" />
+
+    <rect x="733" y="220" width="44" height="58" rx="4" />
+    <path d="M777 232 L795 232 L795 278 L733 278" />
+    <path d="M777 220 V242 H799" />
+    <line x1="745" y1="238" x2="785" y2="238" />
+    <line x1="745" y1="251" x2="785" y2="251" />
+    <circle cx="803" cy="267" r="17" />
+    <line x1="816" y1="280" x2="829" y2="293" />
+
+    <rect x="912" y="222" width="70" height="54" rx="4" />
+    <line x1="912" y1="236" x2="982" y2="236" />
+    <line x1="926" y1="222" x2="926" y2="276" />
+    <line x1="946" y1="222" x2="946" y2="276" />
+    <line x1="966" y1="222" x2="966" y2="276" />
+    <path d="M945 250 L976 264" />
+    <path d="M976 264 L956 272" />
+    <circle cx="988" cy="281" r="6" />
+    <circle cx="1007" cy="281" r="6" />
+    <path d="M982 244 L1000 272" />
+    <path d="M1003 244 L992 273" />
+
+    <path d="M1118 229 L1124 247 L1142 253 L1124 259 L1118 277 L1112 259 L1094 253 L1112 247 Z" />
+    <rect x="1166" y="230" width="46" height="48" rx="10" />
+    <path d="M1180 244 H1198" />
+    <path d="M1180 256 H1198" />
+    <path d="M1180 268 H1192" />
+
+    <circle cx="1323" cy="236" r="15" />
+    <path d="M1306 274 C1310 260 1319 254 1323 254 C1327 254 1336 260 1340 274" />
+    <rect x="1368" y="214" width="48" height="64" rx="4" />
+    <rect x="1382" y="206" width="20" height="10" rx="2" />
+    <path d="M1380 236 L1388 244 L1402 228" />
+    <path d="M1380 260 L1403 260" />
+    <path d="M1384 270 L1400 286" />
+    <path d="M1400 270 L1384 286" />
+  </g>
+
+  <g stroke="#cfc6b9" stroke-width="2">
+    <line x1="560" y1="346" x2="560" y2="512" />
+    <line x1="960" y1="346" x2="960" y2="512" />
+    <line x1="1360" y1="346" x2="1360" y2="512" />
+  </g>
+
+  <path d="M1360 346 L1542 346 L1542 455 L580 455 L580 346" fill="none" stroke="#e53935" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+  <polygon points="568,359 580,333 592,359" fill="#e53935" />
+  <rect x="878" y="382" width="390" height="38" rx="10" fill="#fff2f1" />
+  <text x="895" y="407" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="800" fill="#e53935">FEEDBACK LOOP  retain_diff_observation() + synthesis</text>
+</svg>
