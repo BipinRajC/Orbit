@@ -1,5 +1,5 @@
 -- =====================================================================
--- ContentOS — consolidated schema (001 + 002_creator_profile + 002_v2)
+-- OrbitOS — consolidated schema
 -- Run this ONCE in Supabase SQL Editor on a fresh project.
 -- Fully idempotent: safe to re-run.
 -- =====================================================================
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS content_projects (
     processing_log    JSONB DEFAULT '[]',
     cost_log          JSONB DEFAULT '{}',
     memory_context    JSONB DEFAULT '{}',
-    target_platforms  TEXT[] DEFAULT ARRAY['instagram_reels', 'youtube_shorts', 'linkedin'],
+    target_platforms  TEXT[] DEFAULT ARRAY['instagram_reels', 'youtube_shorts', 'tiktok', 'linkedin'],
     created_at        TIMESTAMPTZ DEFAULT now(),
     updated_at        TIMESTAMPTZ DEFAULT now()
 );
@@ -66,13 +66,16 @@ CREATE TRIGGER update_moments_updated_at
 
 -- ---------------------------------------------------------------------
 -- derivatives
+-- NOTE: platform and content_type use unconstrained TEXT so that
+-- new platforms (tiktok) and content types (short_form_deliverable)
+-- can be added without migrations. Validation is enforced in the API.
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS derivatives (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     moment_id         UUID REFERENCES moments(id) ON DELETE CASCADE,
     project_id        UUID REFERENCES content_projects(id) ON DELETE CASCADE,
-    platform          TEXT CHECK (platform IN ('short_form_video', 'twitter')),
-    content_type      TEXT CHECK (content_type IN ('hook', 'caption', 'tweet', 'framing')),
+    platform          TEXT NOT NULL,
+    content_type      TEXT NOT NULL DEFAULT 'short_form_deliverable',
     content           TEXT,
     status            TEXT CHECK (status IN ('draft', 'approved', 'rejected')) DEFAULT 'draft',
     generation_model  TEXT,
