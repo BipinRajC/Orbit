@@ -298,7 +298,7 @@ export default function MemoryPage() {
                       {/* Card */}
                       <div className="flex-1 rounded-2xl border-2 border-[#1a1a1a] bg-white px-5 py-3.5 shadow-[3px_3px_0_#1a1a1a]">
                         <div className="flex items-start justify-between gap-3">
-                          <span className="font-bold text-[#1a1a1a]">{node.label}</span>
+                          <span className="font-bold text-[#1a1a1a]">{node.full_text || node.label}</span>
                           <div className="flex shrink-0 items-center gap-2">
                             <span className="rounded-full border border-[#1a1a1a]/20 px-2 py-0.5 text-[9px] font-bold capitalize"
                               style={{ background: c.fill, color: c.text }}>
@@ -307,12 +307,6 @@ export default function MemoryPage() {
                             <span className="text-[10px] font-black text-[#1a1a1a]/50">{pct}%</span>
                           </div>
                         </div>
-
-                        {node.full_text && (
-                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[#1a1a1a]/60">
-                            {node.full_text}
-                          </p>
-                        )}
 
                         {/* Real Hindsight tags */}
                         {node.tags && node.tags.length > 0 && (
