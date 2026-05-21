@@ -97,9 +97,15 @@ async def fetch_transcript_from_youtube(url: str) -> tuple[list[dict], str | Non
 
 
 def _parse_json3(raw: dict) -> list[dict]:
-    """Convert YouTube json3 caption format to our segment format."""
+    """Convert YouTube json3 caption format to our segment format.
+
+    YouTube auto-captions frequently set dDurationMs=0 on text events.
+    When that happens we infer the duration from the next event's tStartMs
+    so the transcript has meaningful end timestamps for the chunker and LLM.
+    """
+    raw_events = raw.get("events", [])
     segments = []
-    for event in raw.get("events", []):
+    for i, event in enumerate(raw_events):
         start_ms = event.get("tStartMs", 0)
         dur_ms = event.get("dDurationMs", 0)
         segs = event.get("segs")
@@ -108,6 +114,18 @@ def _parse_json3(raw: dict) -> list[dict]:
         text = "".join(s.get("utf8", "") for s in segs).strip()
         if not text or text == "\n":
             continue
+
+        # When dDurationMs=0, look ahead to the next event with a later tStartMs
+        if dur_ms == 0:
+            for j in range(i + 1, min(i + 10, len(raw_events))):
+                next_start = raw_events[j].get("tStartMs")
+                if next_start and next_start > start_ms:
+                    dur_ms = next_start - start_ms
+                    break
+            # Absolute fallback: assume 2-second caption display
+            if dur_ms == 0:
+                dur_ms = 2000
+
         segments.append({
             "start": start_ms / 1000.0,
             "end": (start_ms + dur_ms) / 1000.0,
