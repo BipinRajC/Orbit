@@ -15,6 +15,15 @@ from app.config import get_settings
 
 logger = logging.getLogger("orbitos.clip_extraction")
 
+# yt-dlp + ffmpeg sync strategy:
+# yt-dlp with --download-sections does a stream copy that snaps the VIDEO to the
+# nearest keyframe BEFORE the requested start, while AUDIO is cut near the exact
+# start. This makes video play ahead of audio (audible drift of up to one GOP).
+# To fix this we pull a padded window via yt-dlp (fast stream copy) and then
+# ffmpeg-re-trim it to the exact start/end with re-encoding so A/V are locked.
+KEYFRAME_LEAD_IN_SECS = 6.0   # safety pad before requested start (covers any reasonable GOP)
+KEYFRAME_TAIL_PAD_SECS = 1.0  # safety pad after requested end
+
 
 async def extract_clip(
     project_id: str,
@@ -64,23 +73,32 @@ async def _download_segments(
     segments: list[dict[str, Any]],
     tmp_dir: str,
 ) -> list[str]:
-    """Download each segment using yt-dlp --download-sections."""
+    """Download each segment with yt-dlp (padded), then ffmpeg-re-trim to the
+    exact window so audio and video stay in sync.
+
+    yt-dlp's --download-sections uses stream copy without keyframe-aligned cuts
+    (we deliberately don't pass --force-keyframes-at-cuts because that requires
+    downloading the full source video, which is too slow). The padded download
+    gives us a clip that starts at the closest keyframe BEFORE our real start;
+    the ffmpeg re-encode then trims to the exact start/end frame and forces
+    audio + video to share PTS 0.
+    """
     files: list[str] = []
     for i, seg in enumerate(segments):
         start = float(seg.get("start", 0))
         end = float(seg.get("end", 0))
-        out_path = os.path.join(tmp_dir, f"segment_{i}.mp4")
+
+        yt_start = max(0.0, start - KEYFRAME_LEAD_IN_SECS)
+        yt_end = end + KEYFRAME_TAIL_PAD_SECS
+        raw_path = os.path.join(tmp_dir, f"raw_segment_{i}.mp4")
+        trimmed_path = os.path.join(tmp_dir, f"segment_{i}.mp4")
 
         cmd = [
             "yt-dlp",
-            "--download-sections", f"*{start}-{end}",
-            # NOTE: --force-keyframes-at-cuts is intentionally omitted — it requires
-            # downloading the entire source video before cutting, which is too slow.
-            # Without it, yt-dlp downloads only the requested segment (keyframe-aligned,
-            # typically within 2s of the requested boundary).
+            "--download-sections", f"*{yt_start}-{yt_end}",
             "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
             "--merge-output-format", "mp4",
-            "-o", out_path,
+            "-o", raw_path,
             "--no-playlist",
             "--quiet",
             "--no-check-certificate",   # corporate TLS-inspection proxy bypass
@@ -88,24 +106,64 @@ async def _download_segments(
         ]
 
         try:
-            await asyncio.wait_for(
-                _run_cmd(cmd),
-                timeout=60.0,
-            )
-            if os.path.exists(out_path):
-                files.append(out_path)
-            else:
-                logger.warning("yt-dlp produced no output for segment %d", i)
+            await asyncio.wait_for(_run_cmd(cmd), timeout=60.0)
         except asyncio.TimeoutError:
             logger.warning("yt-dlp timed out on segment %d", i)
+            continue
         except Exception as exc:
             logger.warning("yt-dlp error on segment %d: %s", i, exc)
+            continue
+
+        if not os.path.exists(raw_path):
+            logger.warning("yt-dlp produced no output for segment %d", i)
+            continue
+
+        # Frame-accurate trim with re-encode so audio and video share PTS 0.
+        offset = max(0.0, start - yt_start)
+        duration = max(0.1, end - start)
+        trim_cmd = [
+            "ffmpeg", "-y",
+            "-ss", f"{offset:.3f}",
+            "-i", raw_path,
+            "-t", f"{duration:.3f}",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+            "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+            "-movflags", "+faststart",
+            "-avoid_negative_ts", "make_zero",
+            "-fflags", "+genpts",
+            trimmed_path,
+        ]
+
+        try:
+            await asyncio.wait_for(_run_cmd(trim_cmd), timeout=60.0)
+        except Exception as exc:
+            logger.warning(
+                "ffmpeg re-trim failed for segment %d (%s) — falling back to raw padded clip; "
+                "A/V drift may be audible",
+                i, exc,
+            )
+            # Fall back so the user at least gets a clip
+            files.append(raw_path)
+            continue
+
+        if os.path.exists(trimmed_path):
+            files.append(trimmed_path)
+        else:
+            logger.warning(
+                "ffmpeg produced no trimmed output for segment %d — falling back to raw", i
+            )
+            files.append(raw_path)
 
     return files
 
 
 async def _stitch_segments(segment_files: list[str], tmp_dir: str) -> str:
-    """Concatenate multiple MP4 segments with ffmpeg concat demuxer."""
+    """Concatenate multiple MP4 segments with ffmpeg concat demuxer.
+
+    NOTE: uses -c copy. Today moments are single-segment so this path isn't hit;
+    if multi-segment moments come back, switch this to a re-encode (libx264 + aac)
+    to avoid join-point A/V drift, same as `_download_segments`.
+    """
     concat_list = os.path.join(tmp_dir, "segments.txt")
     with open(concat_list, "w") as f:
         for path in segment_files:
