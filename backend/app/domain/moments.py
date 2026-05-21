@@ -35,6 +35,27 @@ def _fmt_time(seconds: float) -> str:
     return f"{m:02d}:{s:02d}"
 
 
+def _format_chunk_with_seconds(segments: list[dict], max_chars: int = 55000) -> str:
+    """
+    Format transcript segments for moment extraction with EXPLICIT absolute-seconds
+    markers. Avoids Claude misreading `MM:SS` time labels as raw integers (which was
+    causing every chunk's moments to collapse into the first minute of the video).
+    """
+    lines: list[str] = []
+    total = 0
+    for seg in segments:
+        start = float(seg.get("start", 0.0))
+        end = float(seg.get("end", 0.0))
+        text = str(seg.get("text", "")).strip()
+        line = f"[start_s={start:.1f} end_s={end:.1f}] {text}"
+        if total + len(line) > max_chars:
+            lines.append("... [transcript truncated]")
+            break
+        lines.append(line)
+        total += len(line) + 1
+    return "\n".join(lines)
+
+
 def _build_persona_block(persona_styles: list[str] | None) -> str:
     styles = persona_styles or []
     if not styles:
@@ -359,9 +380,11 @@ async def _extract_from_chunk(
     if not chunk:
         return []
 
-    transcript_text = format_transcript_for_prompt(chunk, max_chars=55000)
-    start_label = _fmt_time(chunk[0]["start"])
-    end_label = _fmt_time(chunk[-1]["end"])
+    transcript_text = _format_chunk_with_seconds(chunk, max_chars=55000)
+    chunk_start_s = float(chunk[0]["start"])
+    chunk_end_s = float(chunk[-1]["end"])
+    start_label = _fmt_time(chunk_start_s)
+    end_label = _fmt_time(chunk_end_s)
 
     intent_section = ""
     if video_intent and (video_intent.get("topic") or video_intent.get("goal")):
@@ -384,11 +407,21 @@ async def _extract_from_chunk(
         f"{memory_section}"
         f"{persona_block}"
         f"{intent_section}"
-        f"## Transcript portion {chunk_num}/{total_chunks} [{start_label} \u2013 {end_label}]\n"
+        f"## Transcript portion {chunk_num}/{total_chunks} "
+        f"(absolute video time {start_label}\u2013{end_label}, "
+        f"i.e. seconds {chunk_start_s:.1f}\u2013{chunk_end_s:.1f})\n"
+        f"Each line is prefixed with `[start_s=NNN end_s=NNN]` giving ABSOLUTE seconds "
+        f"from the beginning of the FULL video. Use those numbers verbatim for `start`/`end` "
+        f"in your tool call.\n\n"
         f"{transcript_text}\n\n"
-        "Find the STRONGEST 2-3 moments from this portion. "
-        "IMPORTANT: each moment MUST be 30-45 seconds long. "
-        "Use the extract_moments tool to return your findings."
+        f"Find the STRONGEST 2-3 moments from this portion. "
+        f"Hard rules:\n"
+        f"- `start` and `end` are ABSOLUTE seconds, both must fall within "
+        f"[{chunk_start_s:.1f}, {chunk_end_s:.1f}].\n"
+        f"- `end - start` must be between {MIN_MOMENT_SECS} and {MAX_MOMENT_SECS}.\n"
+        f"- Copy timestamps directly from the `start_s=` / `end_s=` markers \u2014 do not "
+        f"convert MM:SS to a number.\n"
+        f"Use the extract_moments tool to return your findings."
     )
 
     max_retries = 2
@@ -404,7 +437,12 @@ async def _extract_from_chunk(
                 max_tokens=2048,
                 temperature=0.3,
             )
-            return _normalise_moments(result.get("moments", []))
+            return _normalise_moments(
+                result.get("moments", []),
+                chunk_start_s=chunk_start_s,
+                chunk_end_s=chunk_end_s,
+                chunk_num=chunk_num,
+            )
         except Exception as exc:
             if attempt < max_retries:
                 wait = 2 ** attempt  # 1s, 2s
@@ -421,8 +459,18 @@ async def _extract_from_chunk(
     return []
 
 
-def _normalise_moments(raw_moments: list[dict]) -> list[dict[str, Any]]:
-    """Normalise extracted moments into DB-ready dicts, enforcing 30-45s window."""
+def _normalise_moments(
+    raw_moments: list[dict],
+    chunk_start_s: float | None = None,
+    chunk_end_s: float | None = None,
+    chunk_num: int | None = None,
+) -> list[dict[str, Any]]:
+    """Normalise extracted moments into DB-ready dicts, enforcing 30-45s window.
+
+    When chunk bounds are provided, any moment whose start falls outside the
+    chunk's actual [start, end] range is dropped. This guards against the model
+    misreading `MM:SS` markers as raw integers and emitting bogus timestamps.
+    """
     moments = []
     for item in raw_moments:
         segs = item.get("segments", [])
@@ -436,6 +484,19 @@ def _normalise_moments(raw_moments: list[dict]) -> list[dict[str, Any]]:
         if len(segs) > 1:
             start_ts = min(float(s.get("start", 0)) for s in segs)
             end_ts = max(float(s.get("end", 0)) for s in segs)
+
+        # Reject moments whose start is outside the chunk's real time window
+        # (with a small slack to allow extension at the boundary).
+        if chunk_start_s is not None and chunk_end_s is not None:
+            slack = 2.0
+            if start_ts < chunk_start_s - slack or start_ts > chunk_end_s + slack:
+                logger.warning(
+                    "Chunk %s: dropping moment with start=%.1f outside chunk bounds [%.1f, %.1f]",
+                    chunk_num, start_ts, chunk_start_s, chunk_end_s,
+                )
+                continue
+            # Clamp start into the chunk if it's marginally outside.
+            start_ts = max(chunk_start_s, min(start_ts, chunk_end_s - MIN_MOMENT_SECS))
 
         # Enforce 30s minimum
         if end_ts - start_ts < MIN_MOMENT_SECS:
