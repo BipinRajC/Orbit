@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { api, isCacheWarm } from '@/lib/api'
 import { Mascot } from '@/components/mascot'
 import type { Project, Derivative } from '@/lib/types'
-import { normalizeBrief } from '@/lib/types'
+import { normalizeDeliverable } from '@/lib/types'
 import { motion } from 'framer-motion'
 import {
   FileText,
@@ -40,14 +40,23 @@ const PLATFORM_LABELS: Record<string, string> = {
   newsletter:      'Newsletter',
 }
 
-function parseBriefHook(content: string): { hook: string; angle: string } | null {
-  try {
-    const raw = JSON.parse(content) as Record<string, unknown>
-    const brief = normalizeBrief(raw)
-    return { hook: brief.hook, angle: brief.angle }
-  } catch {
-    return null
-  }
+function parseDeliverablePreview(d: Derivative): {
+  title: string
+  subtitle: string
+  copyText: string
+} {
+  const deliverable = normalizeDeliverable(d)
+  const title =
+    deliverable.title.trim() ||
+    deliverable.caption.split('\n')[0]?.trim() ||
+    deliverable.spoken_script.split('\n')[0]?.trim() ||
+    'Untitled draft'
+  const subtitle =
+    deliverable.description.trim() ||
+    deliverable.why_this_clip.trim() ||
+    deliverable.caption.trim()
+  const copyText = deliverable.caption.trim() || deliverable.spoken_script.trim() || title
+  return { title, subtitle, copyText }
 }
 
 const STATUS_STYLES: Record<string, { icon: React.ElementType; badge: string }> = {
@@ -201,25 +210,18 @@ export default function DraftsPage() {
                     </div>
                     {/* Content preview */}
                     {(() => {
-                      const brief = parseBriefHook(d.content)
-                      if (brief) {
-                        return (
-                          <div className="space-y-1">
-                            <p className="text-sm font-semibold leading-snug text-[#1a1a1a]/85">
-                              &ldquo;{brief.hook}&rdquo;
-                            </p>
-                            {brief.angle && (
-                              <p className="line-clamp-2 text-xs leading-relaxed text-[#1a1a1a]/55">
-                                {brief.angle}
-                              </p>
-                            )}
-                          </div>
-                        )
-                      }
+                      const { title, subtitle } = parseDeliverablePreview(d)
                       return (
-                        <p className="line-clamp-3 text-sm leading-relaxed text-[#1a1a1a]/75">
-                          {d.content}
-                        </p>
+                        <div className="space-y-1">
+                          <p className="text-sm font-bold leading-snug text-[#1a1a1a]">
+                            {title}
+                          </p>
+                          {subtitle && (
+                            <p className="line-clamp-2 text-xs leading-relaxed text-[#1a1a1a]/55">
+                              {subtitle}
+                            </p>
+                          )}
+                        </div>
                       )
                     })()}
                     {/* Project link */}
@@ -234,8 +236,8 @@ export default function DraftsPage() {
                   {/* Copy button */}
                   <button
                     onClick={() => {
-                      const brief = parseBriefHook(d.content)
-                      handleCopy(brief ? brief.hook : d.content, d.id)
+                      const { copyText } = parseDeliverablePreview(d)
+                      handleCopy(copyText, d.id)
                     }}
                     className="shrink-0 rounded-lg border-2 border-[#1a1a1a]/15 bg-white p-2 text-[#1a1a1a]/50 transition-all hover:border-[#1a1a1a] hover:text-[#1a1a1a] cursor-pointer"
                     title="Copy content"

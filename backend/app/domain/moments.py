@@ -20,7 +20,13 @@ NUM_CHUNKS = 5
 TARGET_MOMENT_COUNT = 7
 MIN_MOMENT_SECS = 30
 MAX_MOMENT_SECS = 45
-MIN_GAP_BETWEEN_MOMENTS_SECS = 30
+# Preferred spacing between picks. We relax this progressively if we can't fill
+# `TARGET_MOMENT_COUNT` at the preferred gap, so a strict gap never under-fills.
+MIN_GAP_BETWEEN_MOMENTS_SECS = 25
+MIN_GAP_FLOOR_SECS = 8
+# Per-chunk candidates we ask Claude for. Higher = more raw material so the
+# downstream selector has slack after duration / gap filtering.
+MAX_CANDIDATES_PER_CHUNK = 3
 
 
 def _fmt_time(seconds: float) -> str:
@@ -82,7 +88,7 @@ _MOMENT_SCHEMA: dict = {
         "moments": {
             "type": "array",
             "minItems": 1,
-            "maxItems": 2,
+            "maxItems": 3,
             "items": {
                 "type": "object",
                 "required": [
@@ -182,6 +188,98 @@ def _greedy_select(
     return selected
 
 
+def _bucket_select(
+    candidates: list[dict],
+    total_duration: float,
+    num_chunks: int,
+    target: int,
+    min_gap: float,
+) -> list[dict]:
+    """
+    Spread-aware selection: bucket candidates by which chunk they fall in,
+    then round-robin pick the highest-scoring moment per chunk while enforcing
+    `min_gap`. After one pass everyone gets a shot; remaining slots are filled
+    by global score order, still respecting `min_gap`.
+    """
+    if total_duration <= 0 or num_chunks <= 0:
+        return _greedy_select(candidates, target, min_gap)
+
+    chunk_size = total_duration / num_chunks
+    buckets: list[list[dict]] = [[] for _ in range(num_chunks)]
+    for c in candidates:
+        start = c.get("start_timestamp", 0)
+        idx = min(int(start / chunk_size), num_chunks - 1) if chunk_size else 0
+        buckets[idx].append(c)
+    for b in buckets:
+        b.sort(key=lambda x: x.get("strength_score", 0.0), reverse=True)
+
+    selected: list[dict] = []
+
+    def _fits(candidate: dict) -> bool:
+        start = candidate.get("start_timestamp", 0)
+        return not any(
+            abs(start - s.get("start_timestamp", 0)) < min_gap for s in selected
+        )
+
+    # Round 1: best-of-each-chunk (chronological so we visit early → late).
+    for bucket in buckets:
+        if len(selected) >= target:
+            break
+        for cand in bucket:
+            if _fits(cand):
+                selected.append(cand)
+                break
+
+    # Round 2: fill remaining slots by global score.
+    if len(selected) < target:
+        remaining = [c for c in candidates if c not in selected]
+        remaining.sort(key=lambda x: x.get("strength_score", 0.0), reverse=True)
+        for cand in remaining:
+            if len(selected) >= target:
+                break
+            if _fits(cand):
+                selected.append(cand)
+
+    return selected
+
+
+def _select_with_relaxation(
+    candidates: list[dict],
+    total_duration: float,
+) -> list[dict]:
+    """
+    Try bucket-aware selection at the preferred gap; if we can't reach
+    TARGET_MOMENT_COUNT, progressively halve the gap down to MIN_GAP_FLOOR_SECS,
+    then as a last resort take the top-N by score regardless of gap. This
+    guarantees we never under-fill when raw candidates exist.
+    """
+    if not candidates:
+        return []
+
+    gap = MIN_GAP_BETWEEN_MOMENTS_SECS
+    best: list[dict] = []
+    while gap >= MIN_GAP_FLOOR_SECS:
+        picked = _bucket_select(
+            candidates, total_duration, NUM_CHUNKS, TARGET_MOMENT_COUNT, gap
+        )
+        if len(picked) > len(best):
+            best = picked
+        if len(picked) >= TARGET_MOMENT_COUNT:
+            return picked
+        gap = gap / 2
+
+    if len(best) < TARGET_MOMENT_COUNT:
+        # Last resort: top up purely by strength, ignoring gap.
+        remaining = [c for c in candidates if c not in best]
+        remaining.sort(key=lambda x: x.get("strength_score", 0.0), reverse=True)
+        for cand in remaining:
+            if len(best) >= TARGET_MOMENT_COUNT:
+                break
+            best.append(cand)
+
+    return best
+
+
 async def extract_moments(
     segments: list[dict],
     memory_reflection: str = "",
@@ -204,6 +302,7 @@ async def extract_moments(
     chunks = _split_transcript_by_time(segments, NUM_CHUNKS)
     # Filter out empty chunks
     non_empty = [(idx, chunk) for idx, chunk in enumerate(chunks) if chunk]
+    total_duration = float(segments[-1]["end"]) if segments else 0.0
 
     tasks = [
         _extract_from_chunk(chunk, idx + 1, NUM_CHUNKS, memory_section, persona_block, video_intent)
@@ -212,18 +311,36 @@ async def extract_moments(
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     all_candidates: list[dict] = []
+    per_chunk_counts: list[int] = []
     for r in results:
         if isinstance(r, list):
             all_candidates.extend(r)
+            per_chunk_counts.append(len(r))
+        else:
+            per_chunk_counts.append(0)
+            logger.warning("Chunk extraction returned exception: %s", r)
 
-    # Filter by duration window, then greedy-select with gap enforcement
+    logger.info(
+        "Moment extraction: %d total candidates across %d non-empty chunks (per-chunk: %s)",
+        len(all_candidates), len(non_empty), per_chunk_counts,
+    )
+
+    # Filter by duration window first.
     duration_filtered = _filter_by_duration(all_candidates)
-    selected = _greedy_select(duration_filtered, TARGET_MOMENT_COUNT, MIN_GAP_BETWEEN_MOMENTS_SECS)
+    if len(duration_filtered) < len(all_candidates):
+        logger.info(
+            "Duration filter dropped %d/%d candidates outside [%ds, %ds]",
+            len(all_candidates) - len(duration_filtered),
+            len(all_candidates), MIN_MOMENT_SECS, MAX_MOMENT_SECS,
+        )
 
-    # If gap-filtered too aggressively, fall back to best available
-    if not selected and all_candidates:
-        all_candidates.sort(key=lambda x: x.get("strength_score", 0.0), reverse=True)
-        selected = all_candidates[:TARGET_MOMENT_COUNT]
+    pool = duration_filtered or all_candidates
+    selected = _select_with_relaxation(pool, total_duration)
+
+    logger.info(
+        "Moment selection: picked %d (target=%d) from %d candidates",
+        len(selected), TARGET_MOMENT_COUNT, len(pool),
+    )
 
     # Sort chronologically before returning
     selected.sort(key=lambda x: x.get("start_timestamp", 0))
@@ -269,7 +386,7 @@ async def _extract_from_chunk(
         f"{intent_section}"
         f"## Transcript portion {chunk_num}/{total_chunks} [{start_label} \u2013 {end_label}]\n"
         f"{transcript_text}\n\n"
-        "Find the STRONGEST 1-2 moments from this portion. "
+        "Find the STRONGEST 2-3 moments from this portion. "
         "IMPORTANT: each moment MUST be 30-45 seconds long. "
         "Use the extract_moments tool to return your findings."
     )
