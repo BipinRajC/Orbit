@@ -234,6 +234,7 @@ export function OnboardingDialog({ forceOpen = false, onClose, onComplete }: Onb
         {step === 1 && (
           <StepWrapper
             title="What should we call you, and what's your YouTube channel about?"
+            subtitle="This helps OrbitOS personalise every clip and caption to your voice. You can skip if you'd prefer."
             step={step} onBack={close} onNext={() => setStep(2)} canAdvance={canAdvance} isFirst
           >
             <input
@@ -466,9 +467,16 @@ function StepWrapper({
       <div className="space-y-3">{children}</div>
 
       <DialogFooter className="gap-2">
-        <Button variant="ghost" onClick={onBack} className="gap-1">
+        <Button
+          variant="ghost"
+          onClick={onBack}
+          className={cn(
+            'gap-1',
+            isFirst && 'border border-[#1a1a1a]/20 text-[#1a1a1a]/60 hover:border-[#1a1a1a]/40 hover:text-[#1a1a1a]'
+          )}
+        >
           <ArrowLeft className="h-4 w-4" />
-          {isFirst ? 'Skip' : 'Back'}
+          {isFirst ? 'Skip setup' : 'Back'}
         </Button>
         <Button onClick={onNext} disabled={!canAdvance}>
           {isLast

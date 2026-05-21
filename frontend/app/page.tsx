@@ -400,14 +400,6 @@ export default function LandingPage() {
             </motion.div>
           </motion.div>
 
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.9 }}
-            className="mt-16 text-xs font-semibold text-[#1a1a1a]/40"
-          >
-            Brought to life with Cascade AI and the Orbit team.
-          </motion.p>
         </div>
       </section>
 

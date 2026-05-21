@@ -62,6 +62,11 @@ function bust(prefix: string) {
   }
 }
 
+/** Bust a specific exact cache entry — used for manual refresh. */
+export function bustCache(key: string) {
+  _cache.delete(key)
+}
+
 // ---------------------------------------------------------------------------
 // Projects
 // ---------------------------------------------------------------------------
@@ -125,6 +130,9 @@ export const api = {
   },
 
   intelligence: {
+    reflect: () => request('/intelligence/reflect') as Promise<{
+      reflection: string; recall_count: number; recall_items: string[]
+    }>,
     graph: (_projectId: string): Promise<IntelligenceGraph> =>
       cached('intelligence/graph', 60_000, () => request('/intelligence/graph')),
   },

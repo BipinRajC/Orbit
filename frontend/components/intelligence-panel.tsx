@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type React from 'react'
 import type { MemoryContext } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import { Brain, Sparkles, Target, ChevronDown, ChevronUp, BookOpen } from 'lucide-react'
+import { Brain, Sparkles, Target, ChevronDown, ChevronUp, BookOpen, RefreshCw } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { api } from '@/lib/api'
 
 interface Props {
   memoryContext: MemoryContext | Record<string, never>
@@ -90,25 +91,52 @@ function renderInline(text: string): React.ReactNode {
 }
 
 export function IntelligencePanel({ memoryContext, defaultOpen = false }: Props) {
-  const [open, setOpen]       = useState(defaultOpen)
-  const [showAll, setShowAll] = useState(false)
+  const [open, setOpen]           = useState(defaultOpen)
+  const [showAll, setShowAll]     = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
-  const ctx         = memoryContext as MemoryContext
-  const hasMemory   = ctx.recall_count > 0
-  const rawItems    = ctx.recall_items ?? []
+  // Live data — starts from the project's stored snapshot, gets overwritten on first open
+  const [liveCtx, setLiveCtx] = useState<{
+    reflection: string
+    recall_count: number
+    recall_items: string[]
+  } | null>(null)
+
+  const ctx = memoryContext as MemoryContext
+
+  // The values we actually render — prefer live data if available
+  const reflection  = liveCtx?.reflection   ?? ctx.reflection   ?? ''
+  const recallCount = liveCtx?.recall_count ?? ctx.recall_count ?? 0
+  const rawItems    = liveCtx?.recall_items ?? ctx.recall_items ?? []
+
+  const hasMemory   = recallCount > 0
   const cleaned     = rawItems.map(cleanMemoryText).filter(Boolean)
   const visible     = showAll ? cleaned : cleaned.slice(0, PREVIEW_COUNT)
   const hiddenCount = cleaned.length - PREVIEW_COUNT
+
+  const fetchLive = useCallback(async () => {
+    setRefreshing(true)
+    try {
+      const data = await api.intelligence.reflect()
+      setLiveCtx(data)
+    } catch { /* backend unreachable — keep stale */ }
+    finally { setRefreshing(false) }
+  }, [])
+
+  // Auto-refresh when the panel is opened for the first time
+  useEffect(() => {
+    if (open && !liveCtx) fetchLive()
+  }, [open, liveCtx, fetchLive])
 
   return (
     <div className="overflow-hidden rounded-2xl border-2 border-[#1a1a1a] bg-white shadow-[4px_4px_0_#1a1a1a]">
 
       {/* ── Header ── */}
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex w-full cursor-pointer items-center justify-between bg-white px-5 py-4 text-left transition-colors hover:bg-[#FAF7F0]"
-      >
-        <div className="flex items-center gap-3">
+      <div className="flex w-full items-center justify-between bg-white px-5 py-4 transition-colors hover:bg-[#FAF7F0]">
+        <button
+          onClick={() => setOpen(!open)}
+          className="flex flex-1 cursor-pointer items-center gap-3 text-left"
+        >
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 border-[#1a1a1a] bg-[#9575CD] shadow-[2px_2px_0_#1a1a1a]">
             <Brain className="h-4 w-4 text-[#FAF7F0]" />
           </div>
@@ -116,7 +144,7 @@ export function IntelligencePanel({ memoryContext, defaultOpen = false }: Props)
             <span className="text-sm font-black text-[#1a1a1a]">Intelligence Panel</span>
             {hasMemory ? (
               <span className="ml-2.5 inline-flex items-center rounded-full border border-[#1a1a1a]/20 bg-[#E1BEE7] px-2 py-0.5 text-[10px] font-bold text-[#1a1a1a]">
-                {ctx.recall_count} memories active
+                {recallCount} memories active
               </span>
             ) : (
               <span className="ml-2.5 inline-flex rounded-full border border-[#1a1a1a]/15 bg-[#F5F5F5] px-2 py-0.5 text-[10px] font-semibold text-[#1a1a1a]/50">
@@ -124,12 +152,21 @@ export function IntelligencePanel({ memoryContext, defaultOpen = false }: Props)
               </span>
             )}
           </div>
-        </div>
-        <ChevronDown className={cn(
-          'h-4 w-4 text-[#1a1a1a]/40 transition-transform duration-200',
-          open && 'rotate-180'
-        )} />
-      </button>
+          <ChevronDown className={cn(
+            'ml-auto h-4 w-4 text-[#1a1a1a]/40 transition-transform duration-200',
+            open && 'rotate-180'
+          )} />
+        </button>
+        {/* Manual refresh button */}
+        <button
+          onClick={e => { e.stopPropagation(); fetchLive() }}
+          disabled={refreshing}
+          className="ml-3 shrink-0 rounded-lg border border-[#1a1a1a]/15 bg-white p-1.5 text-[#1a1a1a]/40 transition-all hover:border-[#1a1a1a]/40 hover:text-[#1a1a1a] disabled:opacity-40 cursor-pointer"
+          title="Refresh synthesis"
+        >
+          <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
+        </button>
+      </div>
 
       <AnimatePresence initial={false}>
         {open && (
@@ -143,13 +180,14 @@ export function IntelligencePanel({ memoryContext, defaultOpen = false }: Props)
             <div className="space-y-5 border-t-2 border-[#1a1a1a]/10 px-5 pb-5 pt-4">
 
               {/* ── Creator Synthesis (most useful — first) ── */}
-              {ctx.reflection && (
+              {reflection && (
                 <div className="rounded-xl border-2 border-[#1a1a1a]/10 bg-[#FAF7F0] p-4">
                   <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-[#1a1a1a]/40">
                     <Sparkles className="h-3 w-3" />
                     Creator Synthesis
+                    {refreshing && <RefreshCw className="ml-1 h-3 w-3 animate-spin opacity-50" />}
                   </p>
-                  <MarkdownText text={ctx.reflection} />
+                  <MarkdownText text={reflection} />
                 </div>
               )}
 
@@ -215,8 +253,8 @@ export function IntelligencePanel({ memoryContext, defaultOpen = false }: Props)
                     Generation Influence
                   </p>
                   <p className="text-xs font-semibold text-[#1a1a1a]">
-                    {ctx.biases_applied > 0
-                      ? `${ctx.biases_applied} memory-based biases shaped this project's briefs`
+                    {recallCount > 0
+                      ? `${recallCount} memory-based biases shaped this project's briefs`
                       : 'No memory-based biases applied — first session baseline'}
                   </p>
                 </div>

@@ -5,7 +5,7 @@ import type React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Brain, RefreshCw, Sparkles, GitBranch, Pencil, Clock, AlertCircle, Share2, LayoutGrid, AlignLeft } from 'lucide-react'
 import { MemoryGraphCanvas } from '@/components/memory-graph-canvas'
-import { api, isCacheWarm } from '@/lib/api'
+import { api, isCacheWarm, bustCache } from '@/lib/api'
 import type { IntelligenceGraph, GraphNodeKind } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -54,6 +54,7 @@ export default function MemoryPage() {
   }, [graph, filteredNodes, filteredIds])
 
   const load = useCallback(async () => {
+    bustCache('intelligence/graph')
     setLoading(true)
     setError(false)
     try {

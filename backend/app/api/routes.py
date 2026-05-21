@@ -568,3 +568,28 @@ async def get_intelligence_graph_global() -> dict:
 
     graph = _build_intelligence_graph(all_items)
     return graph
+
+
+@router.get("/intelligence/reflect")
+async def get_intelligence_reflect() -> dict:
+    """
+    Return a fresh creator synthesis + live memory count by calling
+    Hindsight reflect_on_creator() on demand. Used by the Intelligence Panel
+    to stay up-to-date after onboarding or new memories are stored.
+    """
+    from app.infrastructure.hindsight import reflect_on_creator, recall_memories
+
+    reflection_task = reflect_on_creator(
+        query="Summarise this creator's content preferences, persona, and style."
+    )
+    recall_task = recall_memories(
+        query="creator voice style tone platform niche audience"
+    )
+    import asyncio
+    reflection, recall = await asyncio.gather(reflection_task, recall_task, return_exceptions=True)
+
+    return {
+        "reflection": reflection if isinstance(reflection, str) else "",
+        "recall_count": recall.get("recall_count", 0) if isinstance(recall, dict) else 0,
+        "recall_items": recall.get("recall_items", []) if isinstance(recall, dict) else [],
+    }
