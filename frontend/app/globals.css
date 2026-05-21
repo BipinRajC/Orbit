@@ -1,0 +1,252 @@
+@import "tailwindcss";
+
+:root {
+  --background: #FAF7F0;
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --muted: #f5f0e8;
+  --muted-foreground: #6b6b6b;
+  --border: #e8e0d0;
+  --accent: #6366f1;
+  --accent-foreground: #1a1a1a;
+  --success: #388E3C;
+  --warning: #f59e0b;
+  --destructive: #ef4444;
+  --ring: #1a1a1a;
+  --sidebar: #f0ebe0;
+  --sidebar-border: #e0d8c8;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-border: var(--sidebar-border);
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #c8bfaf;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a89f8f;
+}
+
+/* Utility classes */
+.btn-xs {
+  @apply rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 disabled:opacity-50 cursor-pointer;
+}
+.btn-primary {
+  @apply bg-[#1a1a1a] text-white hover:bg-[#333] shadow-sm;
+}
+.btn-ghost {
+  @apply bg-white text-[#1a1a1a] border border-[#1a1a1a]/20 hover:bg-[#FAF7F0] hover:border-[#1a1a1a]/40;
+}
+.btn-danger {
+  @apply bg-red-50 text-red-600 border border-red-200 hover:bg-red-100;
+}
+
+/* Glow effects */
+.glow-accent {
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.15), 0 0 60px rgba(99, 102, 241, 0.05);
+}
+.glow-success {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.15), 0 0 60px rgba(16, 185, 129, 0.05);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Animated gradient border */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* Pulse glow for processing */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px rgba(99, 102, 241, 0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 12px rgba(99, 102, 241, 0.6); }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Slide-in animation */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* ===== Extended Design System ===== */
+
+/* Shimmer text sweep */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Slow atmospheric float for background orbs */
+@keyframes aurora-float {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(22px, -16px) scale(1.04); }
+  66% { transform: translate(-16px, 12px) scale(0.96); }
+}
+
+/* Ping-style live indicator */
+@keyframes beacon {
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+
+.animate-aurora-float {
+  animation: aurora-float 16s ease-in-out infinite;
+}
+
+.animate-beacon {
+  animation: beacon 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Sweeping shimmer gradient on text */
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    #818cf8 0%,
+    #c084fc 20%,
+    #f472b6 40%,
+    #c084fc 65%,
+    #818cf8 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 5s linear infinite;
+}
+
+/* Glass morphism surface */
+.glass {
+  background: rgba(255, 255, 255, 0.025);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Feature tag pills */
+.feature-pill {
+  @apply inline-flex items-center gap-1.5 rounded-full border border-zinc-700/50 bg-zinc-900/80 px-3 py-1.5 text-xs font-medium text-zinc-400 backdrop-blur-sm transition-colors hover:border-zinc-600/60 hover:text-zinc-300;
+}
+
+/* Card with indigo gradient border glow */
+.gradient-card {
+  background: var(--card);
+  border-radius: 16px;
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  box-shadow:
+    0 0 0 1px rgba(99, 102, 241, 0.04),
+    0 8px 40px rgba(0, 0, 0, 0.5),
+    0 0 80px rgba(99, 102, 241, 0.07);
+}
+
+/* Subtle dot-grid background texture */
+.dot-grid {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Stationary ambient glow behind hero */
+.hero-glow {
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
+}
+
+/* Horizontal marquee */
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 28s linear infinite;
+  will-change: transform;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Terminal cursor blink */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+.animate-cursor {
+  animation: cursor-blink 1s step-start infinite;
+}
+
+/* Octopus mascot eye blink */
+@keyframes mascot-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  96%           { transform: scaleY(0.08); }
+}
+.mascot-blink {
+  animation: mascot-blink 3.8s ease-in-out infinite;
+}
+
+/* Tentacle wave — each leg has a staggered delay */
+@keyframes tentacle-wave {
+  0%, 100% { transform: rotate(0deg); }
+  25%      { transform: rotate(6deg); }
+  75%      { transform: rotate(-6deg); }
+}
+.tentacle { animation: tentacle-wave 2.4s ease-in-out infinite; }
+.tentacle-1 { transform-origin: 18px 70px; animation-delay: 0s; }
+.tentacle-2 { transform-origin: 30px 78px; animation-delay: 0.15s; }
+.tentacle-3 { transform-origin: 42px 84px; animation-delay: 0.3s; }
+.tentacle-4 { transform-origin: 54px 86px; animation-delay: 0.45s; }
+.tentacle-5 { transform-origin: 66px 86px; animation-delay: 0.6s; }
+.tentacle-6 { transform-origin: 78px 84px; animation-delay: 0.75s; }
+.tentacle-7 { transform-origin: 90px 78px; animation-delay: 0.9s; }
+.tentacle-8 { transform-origin: 102px 70px; animation-delay: 1.05s; }
