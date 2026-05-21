@@ -16,10 +16,11 @@ interface Props {
 const PLATFORM_META: Record<Platform, { label: string; icon: string }> = {
   instagram_reels: { label: 'Instagram Reels', icon: '◎' },
   youtube_shorts:  { label: 'YouTube Shorts',  icon: '▶' },
+  tiktok:          { label: 'TikTok',           icon: '♪' },
   linkedin:        { label: 'LinkedIn',         icon: '◆' },
 }
 
-const PLATFORM_ORDER: Platform[] = ['instagram_reels', 'youtube_shorts', 'linkedin']
+const PLATFORM_ORDER: Platform[] = ['instagram_reels', 'youtube_shorts', 'tiktok', 'linkedin']
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
