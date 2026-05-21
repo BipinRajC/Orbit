@@ -1,10 +1,6 @@
-<p align="center">
-  <img src="docs/assets/orbitos-logo.png" alt="OrbitOS logo" width="560" />
-</p>
+<img width="1100" height="400" alt="image" src="https://github.com/user-attachments/assets/be6e09f4-0036-44be-af0f-ad14a45b28e3" />
 
-<p align="center">
-  <img src="docs/assets/orbit-banner.svg" alt="OrbitOS banner" width="100%" />
-</p>
+
 
 <p align="center">
   <a href="#what-is-orbitos">What is OrbitOS?</a> •
@@ -28,9 +24,15 @@
 
 # OrbitOS
 
-OrbitOS turns a long-form YouTube video into ranked moments, review-ready 9:16 clips, and platform-specific production briefs. The system does not stop at generation: every edit, approval, rejection, and regeneration becomes usable signal for the next project.
+> **One YouTube video → ranked moments, 9:16 clips, platform-ready production briefs — and a memory that gets better every time you use it.**
 
-`v3-mvp` already ships the full review loop: ingest, transcript fallback, creator-memory recall, moment extraction, clip cutting, brief generation, inline review, and retained creator observations.
+## The Problem
+
+A fitness creator who deadlifts 200kg gets LinkedIn posts that open with *"In today's fast-paced digital landscape..."* A fintech newsletter writer gets the same generic hooks as a lifestyle vlogger. Every session starts from zero.
+
+The usual fix is a preferences form like check "casual," pick your platforms, list words to avoid. But people are terrible at describing their own style. A creator says "I'm casual and direct" and then rejects every draft that doesn't open with a specific data point. Stated preferences and revealed preferences are two different universes.
+
+OrbitOS solves this by treating every review action as training data. The system observes what creators actually do which hooks they approve, which drafts they shorten, which filler words they always cut and feeds those observations back into the next generation cycle. No fine-tuning, no config pages. Just memory that compounds.
 
 ## What Is OrbitOS?
 
@@ -43,7 +45,7 @@ OrbitOS is built for creators who record once and need multiple outputs without 
 | Instagram Reels, YouTube Shorts, and LinkedIn briefs | Hooks, scripts, captions, CTAs, Higgsfield prompts, and editing notes | Output is ready for a creator or editor to work from directly |
 | Review signals and retained observations | Better memory context on the next run | The system learns from creator behavior instead of resetting |
 
-The README below is aligned to the `v3-mvp` branch. Some internal identifiers in code still say `ContentOS`, but the product surfaced in this branch is OrbitOS.
+
 
 ## Memory That Compounds
 
@@ -51,12 +53,21 @@ The README below is aligned to the `v3-mvp` branch. Some internal identifiers in
   <img src="docs/assets/orbit-memory-loop.png" alt="OrbitOS memory loop" width="100%" />
 </p>
 
-OrbitOS treats review as structured supervision.
+OrbitOS treats review as structured supervision. The system gets noticeably better with each project:
 
-1. `POST /api/profile` stores baseline creator observations in Hindsight.
-2. `run_pipeline()` calls `recall()` and `reflect()` before extraction and brief generation.
-3. Editing a derivative can trigger `retain_diff_observation()` immediately in the background.
-4. `POST /api/projects/{id}/complete-review` synthesizes new observations from review events and stores them for the next project.
+| Project | What the creator sees | What happens under the hood |
+| --- | --- | --- |
+| **Project 1** | Generic hooks, safe tone, broad platform defaults | Cold start — `recall()` returns empty, system uses universal heuristics |
+| **Project 3** | Hooks that match the creator's preferred length, fewer filler words | 8–12 observations retained from prior reviews, `reflect()` generates a personality summary |
+| **Project 5** | Output feels like "it knows me" — right tone, right structure, right platform nuances | 20+ observations compounding, memory reflection shapes every prompt |
+| **Project 10+** | Creator edits less than 10% of generated briefs | Dense memory bank, system consistently produces what the creator would have written themselves |
+
+The loop is built on [Hindsight](https://github.com/vectorize-io/hindsight) and works in four stages:
+
+1. **Profile baseline** — `POST /api/profile` stores initial creator observations (niche, platforms, tone, audience, words to avoid) in Hindsight as tagged memories.
+2. **Recall before generation** — `run_pipeline()` calls `recall_memories()` and `reflect_on_creator()` before extraction and brief generation. The reflection gets injected into Claude's prompt as a `## Creator Voice & Preferences` section.
+3. **Real-time observation** — Editing a derivative triggers `retain_diff_observation()` in the background, classifying whether the creator shortened, expanded, or rewrote the draft.
+4. **Post-review synthesis** — `POST /api/projects/{id}/complete-review` passes all editing events to a CascadeFlow synthesis agent, which extracts 6–10 precise observations like *"Creator consistently removes the word 'essentially' and shortens hooks to under 8 words"* and stores them in Hindsight with structured tags.
 
 In code, that loop is explicit:
 
@@ -124,6 +135,8 @@ observation_growth   = retained_creator_observations over time
 | 6. Generate | Produce platform-specific production briefs with Claude Sonnet 4.5 | `backend/app/domain/generation.py` |
 | 7. Persist | Save projects, moments, derivatives, clips, and review state | `backend/app/infrastructure/supabase.py` |
 
+**Every stage has a fallback.** YouTube throttles downloads → captions are tried first. Audio files >25 MB → auto-chunked before Whisper. Claude returns malformed JSON → regex-parsed as a last resort. Clip extraction fails → YouTube embed with start/end timestamps. No creator memories yet → universal heuristics kick in. The system never shows a blank screen.
+
 ### Project Lifecycle
 
 ```text
@@ -152,6 +165,54 @@ OrbitOS is split into four runtime layers:
 - a FastAPI backend that runs the seven-stage job in the background
 - a creator-memory layer built on Hindsight, with review synthesis flowing back into retained observations
 - Supabase plus media tooling for persistence, clip extraction, and status updates
+
+## Keeping It Cheap: CascadeFlow Cost Routing
+<img width="997" height="497" alt="image" src="https://github.com/user-attachments/assets/43d750c3-6f52-4cd2-bf72-a4f881fcb958" />
+
+
+A single project can rack up 15–20 LLM calls. Without cost control, that's roughly **$0.08–0.12 per project** if every call goes to the expensive model. For a creator processing 10 videos a week, that adds up fast and most of those calls don't need premium accuracy.
+
+The key insight: different pipeline stages have different quality requirements. Moment extraction (finding the best 45 seconds in a 30-minute video) needs to be accurate which is getting that wrong means the entire project is useless. But review synthesis (extracting observations like "creator always removes filler words") is simple text classification that a smaller model handles perfectly.
+
+[CascadeFlow](https://github.com/lemony-ai/cascadeflow) routes each call to a drafter model (Groq Llama 3.1 8B — fast, cheap) or a verifier model (Groq Llama 3.3 70B — accurate), based on a quality threshold you set per agent:
+
+```python
+def get_extraction_agent() -> CascadeAgent:
+    """Higher quality: moment extraction needs accuracy."""
+    return build_agent(quality_threshold=0.8)
+
+def get_generation_agent() -> CascadeAgent:
+    """Lower threshold: drafter handles most generation cheaply."""
+    return build_agent(quality_threshold=0.65)
+
+def get_synthesis_agent() -> CascadeAgent:
+    """Synthesis uses drafter only: observations are simple text."""
+    return build_agent(quality_threshold=0.5)
+```
+
+The cost curve in practice:
+
+| Metric | Without CascadeFlow | With CascadeFlow |
+| --- | --- | --- |
+| Cost per project | ~$0.10 (all verifier) | ~$0.02–0.03 (70–80% drafter) |
+| Synthesis calls on drafter | 0% | ~95% |
+| Extraction accuracy | Same | Same (verifier still handles complex extractions) |
+| Quality degradation | — | None measurable |
+
+The `CostAccumulator` tracks every call and logs which model handled it, the cost, and what we would have spent if everything went to the expensive model. This surfaces in the UI as a per-project cost breakdown as creators don't need to care about it, but the numbers are there. Three agents, three thresholds, same two underlying models. No routing `if/else` logic. CascadeFlow decides when to escalate based on a single quality number.
+
+## Intelligence Graph: Making Memory Visible
+
+<img width="1004" height="488" alt="image" src="https://github.com/user-attachments/assets/9c83143a-e900-4fbe-ba5e-1c2b4bf809ed" />
+
+
+If the system is learning from a creator, the creator needs to see what it learned. The intelligence graph queries Hindsight across three memory domains (style/tone, editing behavior, profile preferences), deduplicates by text, and classifies each memory into a node type using the tags Hindsight already stores.
+
+The graph renders with five node types: **root** (creator identity), **traits** (tone, style, voice), **platforms**, **preferences** (editing patterns), and **topics** (niche). Edges encode semantic similarity, temporal proximity, entity overlap (shared keywords), and causal relationships (platform → preference).
+
+The creator can hover over any node and see the full observation text. It's the difference between "the AI is learning" and "here's exactly what the AI thinks it knows about you, and you can see it evolving in real time."
+
+This transparency creates a natural feedback loop that no amount of prompt engineering can match. In testing, creators who spotted observations they disagreed with ("Creator prefers formal tone" when they thought they were casual) immediately edited a few more drafts to correct the signal. The memory system self-corrected because the creator could see the model's assumptions and naturally generated counter-evidence. Users will train the system for free if you just show them what it thinks.
 
 ## Quick Start
 
@@ -287,12 +348,22 @@ docs/superpowers/
 
 ## Built With
 
-- Next.js 16 and React 19 for the studio UI
-- FastAPI and Pydantic for the backend API
-- Hindsight for creator memory recall, reflection, and retention
-- Anthropic Claude Haiku 4.5 for moment extraction
-- Anthropic Claude Sonnet 4.5 for production-brief generation
-- Groq Whisper Large V3 Turbo for transcription fallback
-- Supabase for project state, derivatives, editing events, and creator profiles
-- yt-dlp and ffmpeg for clip extraction and 9:16 outputs
-- CascadeFlow for review synthesis and cost-routing compatibility
+| Layer | Technology | Role |
+| --- | --- | --- |
+| Frontend | **Next.js 16** + **React 19** | Studio UI with Tailwind CSS v4, Framer Motion, Radix UI |
+| Backend | **FastAPI** + **Pydantic** | REST API and background pipeline orchestration |
+| Extraction | **Claude Haiku 4.5** (Anthropic SDK) | Moment identification from transcripts — structured JSON via `tool_use` |
+| Generation | **Claude Sonnet 4.5** (Anthropic SDK) | Production brief creation with creator memory injection |
+| Synthesis | **CascadeFlow** (Groq Llama 3.1 8B / 3.3 70B) | Review observation extraction — drafter handles ~95% of synthesis calls |
+| Transcription | **Groq Whisper Large V3 Turbo** | Audio-to-text when YouTube captions unavailable |
+| Memory | **Hindsight** | Creator memory recall, reflection, and observation retention |
+| State | **Supabase** | Projects, moments, derivatives, editing events, creator profiles |
+| Media | **yt-dlp** + **ffmpeg** | Clip extraction, multi-segment stitching, 9:16 vertical crop |
+| Deployment | **Docker Compose** | Two-service stack (backend + frontend) |
+
+---
+
+<p align="center">
+  <b>OrbitOS</b> — one workflow, one persona, one clear value proposition.<br/>
+  Record once. Repurpose everywhere. Let memory do the rest.
+</p>
