@@ -37,3 +37,6 @@ supabase/.temp/
 *.log
 dist/
 build/
+
+# context files excluded from git
+docs/*CONTEXT*.md
