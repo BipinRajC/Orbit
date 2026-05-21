@@ -1,14 +1,66 @@
-import type { ProductionBrief } from '@/lib/types'
+import type { ProductionBrief, ShortFormDeliverable } from '@/lib/types'
 
 const PLATFORM_LABELS: Record<string, string> = {
   instagram_reels: 'Instagram Reels',
   youtube_shorts:  'YouTube Shorts',
+  tiktok:          'TikTok',
   linkedin:        'LinkedIn',
 }
 
 /**
- * Format a production brief as a markdown string suitable for clipboard export.
- * Optional fields (caption, editing_notes, higgsfield_prompt) are omitted if empty.
+ * Format a ShortFormDeliverable as copy-pasteable markdown.
+ * The `projectTitle` param is optional context shown in the sub-header.
+ */
+export function formatDeliverableAsMarkdown(
+  deliverable: ShortFormDeliverable,
+  platform: string,
+  projectTitle?: string,
+): string {
+  const platformLabel = PLATFORM_LABELS[platform] ?? platform
+  const lines: string[] = []
+
+  lines.push(`# ${deliverable.title}`)
+  lines.push(`*${platformLabel}${projectTitle ? ` · ${projectTitle}` : ''}*`)
+  lines.push('')
+
+  lines.push('## Caption')
+  lines.push(deliverable.caption)
+  lines.push('')
+
+  if (deliverable.description) {
+    lines.push('## Description')
+    lines.push(deliverable.description)
+    lines.push('')
+  }
+
+  lines.push('## Spoken Script')
+  lines.push(deliverable.spoken_script)
+  lines.push('')
+
+  if (deliverable.why_this_clip) {
+    lines.push('## Why this clip')
+    lines.push(deliverable.why_this_clip)
+    lines.push('')
+  }
+
+  if (deliverable.visual_direction) {
+    lines.push('## Visual direction (for AI generators)')
+    lines.push(deliverable.visual_direction)
+    lines.push('')
+  }
+
+  if (deliverable.editor_notes) {
+    lines.push('## Editor notes (for AI editor)')
+    lines.push(deliverable.editor_notes)
+    lines.push('')
+  }
+
+  return lines.join('\n').trimEnd()
+}
+
+/**
+ * @deprecated Use formatDeliverableAsMarkdown for new ShortFormDeliverable data.
+ * Kept for any remaining legacy production_brief code paths.
  */
 export function formatBriefAsMarkdown(
   brief: ProductionBrief,

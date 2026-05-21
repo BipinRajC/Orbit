@@ -267,12 +267,12 @@ export function DeliverableCard({ derivative, onUpdate, momentTitle }: Props) {
 
   async function handleRegenField(fieldKey: string) {
     setRegenField(fieldKey)
-    const prevVal = (deliverable as Record<string, string>)[fieldKey] ?? ''
+    const prevVal = (deliverable as unknown as Record<string, string>)[fieldKey] ?? ''
     try {
       const updated = await api.derivatives.regenerate(derivative.id, undefined, fieldKey)
       onUpdate(updated)
       const newDeliverable = normalizeDeliverable(updated)
-      const newVal = (newDeliverable as Record<string, string>)[fieldKey] ?? ''
+      const newVal = (newDeliverable as unknown as Record<string, string>)[fieldKey] ?? ''
       if (prevVal !== newVal) {
         setDiffByField(prev => ({ ...prev, [fieldKey]: wordDiff(prevVal, newVal) }))
       }

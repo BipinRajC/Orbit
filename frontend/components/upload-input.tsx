@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { api } from '@/lib/api'
-import { PlatformSelector, type Platform } from './platform-selector'
+import type { Platform } from '@/lib/types'
+import { PlatformSelector } from './platform-selector'
 
 const PLACEHOLDER_EXAMPLES = [
   'youtube.com/watch?v=dQw4w9WgXcQ',
