@@ -1,0 +1,14 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-dotenv>=1.0.0
+pydantic>=2.8.0
+pydantic-settings>=2.4.0
+supabase>=2.10.0
+httpx>=0.27.0
+groq>=0.11.0
+anthropic>=0.40.0
+yt-dlp>=2024.11.4
+hindsight-client>=0.6.2
+cascadeflow>=1.2.0
+python-multipart>=0.0.12
+asyncio-extras>=1.3.0
