@@ -1,8 +1,9 @@
-"""Moment extraction — identify the 3-5 strongest moments from a transcript.
+"""Moment extraction — identify the 7 strongest moments spread across the full video.
 
 Uses Claude Haiku 4.5 with structured output (tool_use) for guaranteed JSON.
-Supports multi-segment moments where 2-3 non-contiguous clips stitch together
-into a stronger narrative arc.
+Strategy: split transcript into 5 equal-duration time chunks, extract 1-2 candidates
+per chunk, then greedily select up to 7 moments enforcing a minimum 30-second gap
+between picks. Final list is sorted chronologically.
 """
 from __future__ import annotations
 
@@ -12,33 +13,64 @@ from typing import Any
 from app.infrastructure.anthropic import HAIKU_MODEL, structured_call
 from app.infrastructure.transcription import format_transcript_for_prompt
 
+NUM_CHUNKS = 5
+TARGET_MOMENT_COUNT = 7
+MIN_MOMENT_SECS = 30
+MAX_MOMENT_SECS = 45
+MIN_GAP_BETWEEN_MOMENTS_SECS = 30
+
 
 def _fmt_time(seconds: float) -> str:
     m = int(seconds // 60)
     s = int(seconds % 60)
     return f"{m:02d}:{s:02d}"
 
+
+def _build_persona_block(persona_styles: list[str] | None) -> str:
+    styles = persona_styles or []
+    if not styles:
+        return ""
+    guidance_lines = []
+    style_set = set(styles)
+    if style_set & {"humour", "wit", "hype-energy"}:
+        guidance_lines.append("- Prioritise punchlines, comedic beats, and big reactions.")
+    if style_set & {"storytelling", "personal"}:
+        guidance_lines.append("- Prioritise narrative arcs with clear setup-conflict-payoff.")
+    if style_set & {"informational", "educational", "tutorial"}:
+        guidance_lines.append("- Prioritise self-contained insights or step-by-step demos.")
+    if style_set & {"hot-take", "commentary"}:
+        guidance_lines.append("- Prioritise strong opinions and contrarian framings.")
+    if style_set & {"inspirational"}:
+        guidance_lines.append("- Prioritise emotional peaks and motivational closers.")
+    if not guidance_lines:
+        guidance_lines.append("- Apply general quality heuristics.")
+    lines = "\n".join(guidance_lines)
+    return (
+        f"\n## Creator persona signals\n"
+        f"This creator's dominant styles are: {', '.join(styles)}.\n"
+        f"When picking moments, weight these heavily:\n{lines}\n"
+    )
+
+
 EXTRACTION_SYSTEM = """\
 You are a world-class content analyst identifying the strongest standalone moments from a \
-specific portion of a creator's long-form content for short-form video.
+specific portion of a creator's long-form YouTube video for short-form clips.
 
 Your goal: find the best moments from the provided transcript excerpt that work as \
-standalone 30-90 second short-form clips.
+standalone 30-45 second short-form clips.
 
 Evaluate each potential moment on:
-- Complete narrative arc: clear setup → tension/insight → payoff
-- Hook quality: the first words stop the scroll — instant curiosity or tension
-- Strong closer: the last words land — an insight, punchline, or emotional beat
+- Complete narrative arc: clear setup \u2192 tension/insight \u2192 payoff
+- Hook quality: the first words stop the scroll \u2014 instant curiosity or tension
+- Strong closer: the last words land \u2014 an insight, punchline, or emotional beat
 - Standalone clarity: makes complete sense without surrounding context
 - Emotional intensity: conviction, humour, vulnerability, passion
 - Shareability: someone would send this to a friend
-- Platform fit: works as a 30-90 second standalone vertical piece
 
-Constraints:
-- Return the number of moments specified in the prompt
-- Each moment must be a single continuous segment — no combining non-contiguous parts
-- Each moment: 30-90 seconds total duration
-- Each segment must be at least 25 seconds
+Hard constraints:
+- Each moment MUST be between 30 and 45 seconds total duration
+- Each moment must be a single continuous segment
+- Return ONLY the number of moments requested in the prompt
 """
 
 _MOMENT_SCHEMA: dict = {
@@ -47,7 +79,7 @@ _MOMENT_SCHEMA: dict = {
         "moments": {
             "type": "array",
             "minItems": 1,
-            "maxItems": 3,
+            "maxItems": 2,
             "items": {
                 "type": "object",
                 "required": [
@@ -69,7 +101,7 @@ _MOMENT_SCHEMA: dict = {
                             "required": ["start", "end", "role"],
                             "properties": {
                                 "start": {"type": "number", "description": "Start timestamp in seconds"},
-                                "end": {"type": "number", "description": "End timestamp in seconds"},
+                                "end": {"type": "number", "description": "End timestamp in seconds. Must be start + 30 to start + 45."},
                                 "role": {
                                     "type": "string",
                                     "enum": ["primary", "payoff", "bridge"],
@@ -77,7 +109,12 @@ _MOMENT_SCHEMA: dict = {
                             },
                         },
                     },
-                    "total_duration_seconds": {"type": "number"},
+                    "total_duration_seconds": {
+                        "type": "number",
+                        "minimum": 30,
+                        "maximum": 45,
+                        "description": "Must be between 30 and 45 seconds.",
+                    },
                     "transcript_snippet": {"type": "string", "maxLength": 500},
                     "narrative_summary": {"type": "string"},
                     "hook_potential": {"type": "string"},
@@ -91,28 +128,83 @@ _MOMENT_SCHEMA: dict = {
 }
 
 
+def _split_transcript_by_time(
+    segments: list[dict], num_chunks: int
+) -> list[list[dict]]:
+    """Split transcript segments into N equal-duration chunks based on timestamps."""
+    if not segments:
+        return [[] for _ in range(num_chunks)]
+    total_duration = segments[-1]["end"]
+    chunk_size = total_duration / num_chunks
+    chunks: list[list[dict]] = [[] for _ in range(num_chunks)]
+    for seg in segments:
+        idx = min(int(seg["start"] / chunk_size), num_chunks - 1)
+        chunks[idx].append(seg)
+    return chunks
+
+
+def _filter_by_duration(moments: list[dict]) -> list[dict]:
+    """Drop moments whose duration is outside the 30-45s window."""
+    valid = []
+    for m in moments:
+        duration = m.get("end_timestamp", 0) - m.get("start_timestamp", 0)
+        if MIN_MOMENT_SECS <= duration <= MAX_MOMENT_SECS:
+            valid.append(m)
+    return valid
+
+
+def _greedy_select(
+    candidates: list[dict],
+    target: int,
+    min_gap: float,
+) -> list[dict]:
+    """
+    Greedy selection: sort by strength_score desc, pick up to `target` moments
+    ensuring at least `min_gap` seconds between any two selected start timestamps.
+    """
+    sorted_candidates = sorted(
+        candidates, key=lambda x: x.get("strength_score", 0.0), reverse=True
+    )
+    selected: list[dict] = []
+    for candidate in sorted_candidates:
+        start = candidate.get("start_timestamp", 0)
+        too_close = any(
+            abs(start - s.get("start_timestamp", 0)) < min_gap
+            for s in selected
+        )
+        if not too_close:
+            selected.append(candidate)
+        if len(selected) >= target:
+            break
+    return selected
+
+
 async def extract_moments(
     segments: list[dict],
     memory_reflection: str = "",
     video_intent: dict | None = None,
+    persona_styles: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Split transcript into chunks, extract candidate moments from each in parallel,
-    then return the top 5 by strength score.
-
-    This guarantees coverage across the full video — every portion is independently
-    analyzed and the best moments surface regardless of where they appear.
+    Split transcript into 5 equal-duration time chunks, extract 1-2 candidate moments
+    from each in parallel, then greedily select up to 7 enforcing MIN_GAP_BETWEEN_MOMENTS_SECS.
+    Returns moments sorted chronologically.
     """
     memory_section = (
-        f"## Creator Context (learned from past sessions)\n{memory_reflection}\n\n"
+        f"## Creator context (learned from past sessions)\n{memory_reflection}\n\n"
         if memory_reflection
-        else "## Creator Context\nNo prior memory — using universal heuristics.\n\n"
+        else "## Creator context\nNo prior memory \u2014 using universal heuristics.\n\n"
     )
 
-    chunks = _split_into_chunks(segments)
+    persona_block = _build_persona_block(persona_styles)
+
+    chunks = _split_transcript_by_time(segments, NUM_CHUNKS)
+    # Filter out empty chunks
+    non_empty = [(idx, chunk) for idx, chunk in enumerate(chunks) if chunk]
+
     tasks = [
-        _extract_from_chunk(chunk, idx + 1, len(chunks), memory_section, video_intent)
-        for idx, chunk in enumerate(chunks)
+        _extract_from_chunk(chunk, idx + 1, NUM_CHUNKS, memory_section, persona_block, video_intent)
+        for idx, chunk in non_empty
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -121,34 +213,18 @@ async def extract_moments(
         if isinstance(r, list):
             all_candidates.extend(r)
 
-    # Sort by strength score across all chunks, return top 5
-    all_candidates.sort(key=lambda x: x.get("strength_score", 0.0), reverse=True)
-    return all_candidates[:5]
+    # Filter by duration window, then greedy-select with gap enforcement
+    duration_filtered = _filter_by_duration(all_candidates)
+    selected = _greedy_select(duration_filtered, TARGET_MOMENT_COUNT, MIN_GAP_BETWEEN_MOMENTS_SECS)
 
+    # If gap-filtered too aggressively, fall back to best available
+    if not selected and all_candidates:
+        all_candidates.sort(key=lambda x: x.get("strength_score", 0.0), reverse=True)
+        selected = all_candidates[:TARGET_MOMENT_COUNT]
 
-def _split_into_chunks(
-    segments: list[dict],
-    max_chars: int = 55000,
-) -> list[list[dict]]:
-    """Split transcript segments into chunks each fitting within max_chars when formatted."""
-    chunks: list[list[dict]] = []
-    current: list[dict] = []
-    current_len = 0
-
-    for seg in segments:
-        line = f"[{_fmt_time(seg['start'])} - {_fmt_time(seg['end'])}] {seg['text']}\n"
-        if current_len + len(line) > max_chars and current:
-            chunks.append(current)
-            current = [seg]
-            current_len = len(line)
-        else:
-            current.append(seg)
-            current_len += len(line)
-
-    if current:
-        chunks.append(current)
-
-    return chunks or [segments]
+    # Sort chronologically before returning
+    selected.sort(key=lambda x: x.get("start_timestamp", 0))
+    return selected
 
 
 async def _extract_from_chunk(
@@ -156,31 +232,16 @@ async def _extract_from_chunk(
     chunk_num: int,
     total_chunks: int,
     memory_section: str,
+    persona_block: str,
     video_intent: dict | None = None,
 ) -> list[dict[str, Any]]:
-    """Extract candidate moments from a single transcript chunk."""
+    """Extract 1-2 candidate moments from a single transcript chunk."""
+    if not chunk:
+        return []
+
     transcript_text = format_transcript_for_prompt(chunk, max_chars=55000)
-    start_label = _fmt_time(chunk[0]["start"]) if chunk else "00:00"
-    end_label = _fmt_time(chunk[-1]["end"]) if chunk else "00:00"
-
-    # Single chunk = full video, ask for 3-5. Multiple chunks = ask for 1-3 per portion.
-    if total_chunks == 1:
-        min_moments, max_moments = 3, 5
-        count_instruction = "Find the strongest 3-5 moments from this video."
-    else:
-        min_moments, max_moments = 1, 3
-        count_instruction = "Find the strongest 1-3 moments from this portion."
-
-    schema = {
-        **_MOMENT_SCHEMA,
-        "properties": {
-            "moments": {
-                **_MOMENT_SCHEMA["properties"]["moments"],
-                "minItems": min_moments,
-                "maxItems": max_moments,
-            }
-        },
-    }
+    start_label = _fmt_time(chunk[0]["start"])
+    end_label = _fmt_time(chunk[-1]["end"])
 
     intent_section = ""
     if video_intent and (video_intent.get("topic") or video_intent.get("goal")):
@@ -193,7 +254,7 @@ async def _extract_from_chunk(
             "build_trust": "Prioritise moments that show personality, authenticity, and depth.",
         }.get(goal, "")
         intent_section = (
-            f"## Video Brief\n"
+            f"## Video brief\n"
             f"Topic: {topic}\n"
             + (f"Goal: {goal_guidance}\n" if goal_guidance else "")
             + "\n"
@@ -201,10 +262,12 @@ async def _extract_from_chunk(
 
     user_prompt = (
         f"{memory_section}"
+        f"{persona_block}"
         f"{intent_section}"
-        f"## Transcript Portion {chunk_num}/{total_chunks} [{start_label} – {end_label}]\n"
+        f"## Transcript portion {chunk_num}/{total_chunks} [{start_label} \u2013 {end_label}]\n"
         f"{transcript_text}\n\n"
-        f"{count_instruction} "
+        "Find the STRONGEST 1-2 moments from this portion. "
+        "IMPORTANT: each moment MUST be 30-45 seconds long. "
         "Use the extract_moments tool to return your findings."
     )
 
@@ -215,7 +278,7 @@ async def _extract_from_chunk(
             user=user_prompt,
             tool_name="extract_moments",
             tool_description="Extract moments from this transcript portion.",
-            input_schema=schema,
+            input_schema=_MOMENT_SCHEMA,
             max_tokens=2048,
             temperature=0.3,
         )
@@ -225,52 +288,49 @@ async def _extract_from_chunk(
 
 
 def _normalise_moments(raw_moments: list[dict]) -> list[dict[str, Any]]:
-    """Normalise extracted moments into DB-ready dicts."""
-    MIN_SEGMENT_SECS = 25.0
-    MIN_TOTAL_SECS = 30.0
-
+    """Normalise extracted moments into DB-ready dicts, enforcing 30-45s window."""
     moments = []
     for item in raw_moments:
         segs = item.get("segments", [])
         if not segs:
             continue
 
-        # Enforce minimum duration per segment
-        enforced_segs = []
-        for seg in segs:
-            s = float(seg.get("start", 0))
-            e = float(seg.get("end", 0))
-            if e - s < MIN_SEGMENT_SECS:
-                e = s + MIN_SEGMENT_SECS
-            enforced_segs.append({**seg, "start": s, "end": e})
-        segs = enforced_segs
-
-        # Derive legacy start/end from primary segment (or first segment)
         primary = next((s for s in segs if s.get("role") == "primary"), segs[0])
         start_ts = float(primary.get("start", 0))
         end_ts = float(primary.get("end", 0))
 
-        # For multi-segment: use first segment start and last segment end as the span
         if len(segs) > 1:
-            all_starts = [float(s.get("start", 0)) for s in segs]
-            all_ends = [float(s.get("end", 0)) for s in segs]
-            start_ts = min(all_starts)
-            end_ts = max(all_ends)
+            start_ts = min(float(s.get("start", 0)) for s in segs)
+            end_ts = max(float(s.get("end", 0)) for s in segs)
 
-        # Enforce minimum total duration
-        if end_ts - start_ts < MIN_TOTAL_SECS:
-            end_ts = start_ts + MIN_TOTAL_SECS
+        # Enforce 30s minimum
+        if end_ts - start_ts < MIN_MOMENT_SECS:
+            end_ts = start_ts + MIN_MOMENT_SECS
+
+        # Enforce 45s maximum
+        if end_ts - start_ts > MAX_MOMENT_SECS:
+            end_ts = start_ts + MAX_MOMENT_SECS
+
+        # Update segment end to match clamped end_ts
+        enforced_segs = []
+        for seg in segs:
+            s = float(seg.get("start", 0))
+            e = float(seg.get("end", 0))
+            # Clamp segment end if it exceeds our window
+            if e > end_ts:
+                e = end_ts
+            enforced_segs.append({**seg, "start": s, "end": e})
 
         moments.append({
             "start_timestamp": start_ts,
             "end_timestamp": end_ts,
-            "segments": segs,  # full multi-segment data
+            "segments": enforced_segs,
             "transcript_snippet": str(item.get("transcript_snippet", ""))[:500],
             "strength_score": float(item.get("strength_score", 0.5)),
             "selection_rationale": str(item.get("selection_rationale", "")),
             "narrative_summary": str(item.get("narrative_summary", "")),
             "hook_potential": str(item.get("hook_potential", "")),
-            "total_duration_seconds": float(item.get("total_duration_seconds", end_ts - start_ts)),
+            "total_duration_seconds": end_ts - start_ts,
         })
 
     return moments

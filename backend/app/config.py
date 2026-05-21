@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     hindsight_api_key: str = ""
 
     # Memory bank
-    hindsight_bank_id: str = "contentos-demo"
+    hindsight_bank_id: str = "orbitos-demo"
 
     # App
     app_env: str = "development"
@@ -43,7 +43,7 @@ class Settings(BaseSettings):
 
     # Clip storage
     clip_storage_path: str = "/app/clips"
-    default_platforms: list[str] = ["instagram_reels", "youtube_shorts", "linkedin"]
+    default_platforms: list[str] = ["instagram_reels", "youtube_shorts", "tiktok", "linkedin"]
 
 
 @lru_cache

@@ -1,4 +1,6 @@
-"""Clip extraction — yt-dlp download + ffmpeg stitch + 9:16 vertical crop."""
+"""Clip extraction — yt-dlp download + ffmpeg stitch. Source aspect preserved.
+9:16 vertical crop is generated on-demand via the /export endpoint.
+"""
 from __future__ import annotations
 
 import asyncio
@@ -11,7 +13,7 @@ from typing import Any
 
 from app.config import get_settings
 
-logger = logging.getLogger("contentos.clip_extraction")
+logger = logging.getLogger("orbitos.clip_extraction")
 
 
 async def extract_clip(
@@ -21,7 +23,8 @@ async def extract_clip(
     segments: list[dict[str, Any]],
 ) -> str | None:
     """
-    Download, stitch (if multi-segment), and crop clip to 9:16 vertical MP4.
+    Download and stitch (if multi-segment) clip in SOURCE aspect ratio.
+    No 9:16 crop — that happens on-demand via export endpoint.
 
     Returns the saved clip path on success, None on failure.
     """
@@ -30,7 +33,7 @@ async def extract_clip(
     out_dir.mkdir(parents=True, exist_ok=True)
     final_path = out_dir / f"{moment_id}.mp4"
 
-    tmp_dir = tempfile.mkdtemp(prefix="contentos_clip_")
+    tmp_dir = tempfile.mkdtemp(prefix="orbitos_clip_")
     try:
         segment_files = await _download_segments(source_url, segments, tmp_dir)
         if not segment_files:
@@ -42,9 +45,8 @@ async def extract_clip(
         else:
             stitched = segment_files[0]
 
-        cropped = await _crop_to_vertical(stitched, tmp_dir)
-        shutil.move(str(cropped), str(final_path))
-        logger.info("Clip saved: %s", final_path)
+        shutil.move(str(stitched), str(final_path))
+        logger.info("Clip saved (source aspect): %s", final_path)
         return str(final_path)
 
     except asyncio.TimeoutError:
@@ -130,7 +132,7 @@ async def _stitch_segments(segment_files: list[str], tmp_dir: str) -> str:
 async def _crop_to_vertical(input_path: str, tmp_dir: str) -> str:
     """
     Center-crop to 9:16 vertical then scale to 1080x1920.
-    From 1920x1080 → 608x1080 center crop → scale to 1080x1920.
+    Internal helper for _crop_to_vertical_on_demand.
     """
     output_path = os.path.join(tmp_dir, "vertical.mp4")
     cmd = [
@@ -141,15 +143,32 @@ async def _crop_to_vertical(input_path: str, tmp_dir: str) -> str:
         "-c:a", "aac", "-b:a", "128k",
         output_path,
     ]
-    try:
-        await asyncio.wait_for(_run_cmd(cmd), timeout=120.0)
-        if os.path.exists(output_path):
-            return output_path
-    except Exception as exc:
-        logger.warning("ffmpeg crop failed (%s) — serving original aspect", exc)
-
-    # Fallback: serve original if crop failed
+    await asyncio.wait_for(_run_cmd(cmd), timeout=120.0)
+    if os.path.exists(output_path):
+        return output_path
     return input_path
+
+
+def _crop_to_vertical_on_demand(src: str, dst: str) -> None:
+    """
+    Synchronous blocking crop for use with asyncio.to_thread().
+    Called by the /export endpoint to generate a 9:16 version on demand.
+    """
+    import subprocess
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", src,
+        "-vf", "crop=ih*9/16:ih,scale=1080:1920",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:a", "aac", "-b:a", "128k",
+        dst,
+    ]
+    result = subprocess.run(cmd, capture_output=True, timeout=120)
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"ffmpeg crop failed (exit {result.returncode}): "
+            f"{result.stderr.decode()[-400:]}"
+        )
 
 
 async def _run_cmd(cmd: list[str]) -> None:

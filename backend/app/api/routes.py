@@ -1,4 +1,4 @@
-"""All REST API routes for ContentOS."""
+"""All REST API routes for OrbitOS."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -18,6 +18,7 @@ from app.api.schemas import (
     UpdateDerivativeRequest,
 )
 from app.domain import processing as pipeline
+from app.domain.tags import build_tags
 from app.infrastructure.supabase import (
     create_project,
     get_project_with_details,
@@ -34,6 +35,17 @@ from app.domain.memory import synthesize_and_store_observations, retain_diff_obs
 from app.config import get_settings
 
 router = APIRouter()
+
+
+async def _get_creator_info() -> tuple[str | None, list[str]]:
+    """Fetch creator name and styles from Supabase profile (best-effort)."""
+    try:
+        row = await get_profile()
+        if row:
+            return row.get("creator_name"), row.get("styles") or []
+    except Exception:
+        pass
+    return None, []
 
 
 # ---------------------------------------------------------------------------
@@ -110,14 +122,25 @@ _TAG_KIND: dict[str, str] = {
     'niche':             'topic',
     'topic':             'topic',
     'audience':          'trait',
+    'event:approve':     'preference',
+    'event:reject':      'preference',
+    'event:edit':        'preference',
+    'event:regenerate':  'preference',
+    'event:profile':     'trait',
 }
 
 def _classify_memory_with_tags(text: str, tags: list[str]) -> tuple[str, str, float]:
     """Classify using real Hindsight tags first, fall back to keyword heuristic."""
     for tag in (tags or []):
+        # Check exact tag first
         kind = _TAG_KIND.get(tag.lower().strip())
         if kind:
             return kind, _short_label(text), 0.80
+        # Check tag prefix (e.g. "style:humour" → style → trait)
+        prefix = tag.split(":")[0].lower() if ":" in tag else ""
+        kind = _TAG_KIND.get(prefix)
+        if kind:
+            return kind, _short_label(text), 0.78
     # Fall back to keyword heuristic
     return _classify_memory(text)
 
@@ -130,7 +153,7 @@ def _build_intelligence_graph(items: list[dict]) -> dict:
     """
     from collections import defaultdict
 
-    nodes: list[dict] = [{'id': 'creator', 'label': 'Creator Voice', 'full_text': 'Core creator identity node', 'kind': 'root', 'weight': 1.0, 'tags': [], 'mentioned_at': None}]
+    nodes: list[dict] = [{'id': 'creator', 'label': 'Creator Persona', 'full_text': 'Core creator identity node', 'kind': 'root', 'weight': 1.0, 'tags': [], 'mentioned_at': None}]
     edges: list[dict] = []
     seen_labels: set[str] = set()
 
@@ -274,33 +297,41 @@ async def save_creator_profile(body: CreatorProfileRequest) -> dict:
         "long": "long — a short paragraph",
     }
     observations = [
-        f"Creator profile \u2014 niche: {body.niche}",
-        f"Creator profile \u2014 primary platform: {body.platform}",
-        f"Creator profile \u2014 content style: {', '.join(body.styles)}",
-        f"Creator profile \u2014 target audience: {body.audience}",
+        f"Creator profile — niche: {body.niche}",
+        f"Creator profile — primary platform: {body.platform}",
+        f"Creator profile — content style: {', '.join(body.styles)}",
+        f"Creator profile — target audience: {body.audience}",
     ]
     if body.all_platforms:
         observations.append(
-            f"Creator profile \u2014 posts on: {', '.join(body.all_platforms)}"
+            f"Creator profile — posts on: {', '.join(body.all_platforms)}"
         )
     if body.hook_length:
         observations.append(
-            f"Creator profile \u2014 preferred hook length: {_HOOK_DESC.get(body.hook_length, body.hook_length)}"
+            f"Creator profile — preferred hook length: {_HOOK_DESC.get(body.hook_length, body.hook_length)}"
         )
     if body.voice_inspirations.strip():
         observations.append(
-            f"Creator profile \u2014 voice inspired by: {body.voice_inspirations.strip()}"
+            f"Creator profile — persona inspired by: {body.voice_inspirations.strip()}"
         )
     if body.creator_name.strip():
         observations.append(
-            f"Creator profile \u2014 creator name: {body.creator_name.strip()}"
+            f"Creator profile — creator name: {body.creator_name.strip()}"
         )
     if body.never_use.strip():
         observations.append(
             f"Creator profile — never use in content: {body.never_use}"
         )
+
+    profile_tags = build_tags(
+        creator_name=body.creator_name,
+        styles=body.styles,
+        platforms=body.all_platforms,
+        event="profile",
+        extra=["creator-profile"],
+    )
     for obs in observations:
-        await retain_observation(obs, tags=["creator-profile"])
+        await retain_observation(obs, tags=profile_tags)
 
     # Persist to Supabase so the Profile settings page can reload it
     try:
@@ -348,17 +379,39 @@ async def get_profile_status() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Clip serving
+# Clip serving + on-demand 9:16 export
 # ---------------------------------------------------------------------------
 
 @router.get("/clips/{project_id}/{moment_id}.mp4")
 async def serve_clip(project_id: str, moment_id: str) -> FileResponse:
-    """Serve extracted 9:16 MP4 clip files."""
+    """Serve extracted source-aspect MP4 clip files."""
     settings = get_settings()
     clip_path = Path(settings.clip_storage_path) / project_id / f"{moment_id}.mp4"
     if not clip_path.exists():
         raise HTTPException(status_code=404, detail="Clip not found")
     return FileResponse(str(clip_path), media_type="video/mp4")
+
+
+@router.post("/clips/{project_id}/{moment_id}/export")
+async def export_clip_vertical(project_id: str, moment_id: str) -> dict:
+    """Generate a 9:16 vertical version of the clip on demand. Returns the URL."""
+    import asyncio as _asyncio
+    from app.infrastructure.clip_extraction import _crop_to_vertical_on_demand
+
+    settings = get_settings()
+    src = str(Path(settings.clip_storage_path) / project_id / f"{moment_id}.mp4")
+    dst = str(Path(settings.clip_storage_path) / project_id / f"{moment_id}_9x16.mp4")
+
+    if not Path(src).exists():
+        raise HTTPException(status_code=404, detail="Source clip missing — process the project first")
+
+    if not Path(dst).exists():
+        try:
+            await _asyncio.to_thread(_crop_to_vertical_on_demand, src, dst)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Crop failed: {exc}")
+
+    return {"url": f"/api/clips/{project_id}/{moment_id}_9x16.mp4"}
 
 
 # ---------------------------------------------------------------------------
@@ -381,12 +434,15 @@ async def edit_derivative(
 
     # Fire-and-forget: immediately push an edit observation to Hindsight
     if original and original.get("content") != body.content:
+        creator_name, styles = await _get_creator_info()
         background_tasks.add_task(
             retain_diff_observation,
             before=original["content"],
             after=body.content,
             platform=derivative["platform"],
             content_type=derivative["content_type"],
+            creator_name=creator_name,
+            styles=styles,
         )
 
     return DerivativeResponse(**derivative)
@@ -403,6 +459,17 @@ async def approve_derivative(derivative_id: UUID) -> DerivativeResponse:
         platform=derivative["platform"],
         content_type=derivative["content_type"],
     )
+    creator_name, styles = await _get_creator_info()
+    await retain_observation(
+        f"Creator approved {derivative['platform']} {derivative['content_type']} without changes",
+        tags=build_tags(
+            creator_name=creator_name,
+            styles=styles,
+            platforms=[derivative["platform"]],
+            content_type=derivative["content_type"],
+            event="approve",
+        ),
+    )
     return DerivativeResponse(**derivative)
 
 
@@ -417,6 +484,17 @@ async def reject_derivative(derivative_id: UUID) -> DerivativeResponse:
         platform=derivative["platform"],
         content_type=derivative["content_type"],
     )
+    creator_name, styles = await _get_creator_info()
+    await retain_observation(
+        f"Creator rejected {derivative['platform']} {derivative['content_type']}",
+        tags=build_tags(
+            creator_name=creator_name,
+            styles=styles,
+            platforms=[derivative["platform"]],
+            content_type=derivative["content_type"],
+            event="reject",
+        ),
+    )
     return DerivativeResponse(**derivative)
 
 
@@ -427,7 +505,9 @@ async def regenerate_derivative(
     background_tasks: BackgroundTasks,
 ) -> DerivativeResponse:
     derivative = await regenerate_single_derivative(
-        str(derivative_id), guidance=body.guidance
+        str(derivative_id),
+        guidance=body.guidance,
+        section=getattr(body, "section", None),
     )
     if not derivative:
         raise HTTPException(status_code=404, detail="Derivative not found")
@@ -437,6 +517,18 @@ async def regenerate_derivative(
         platform=derivative["platform"],
         content_type=derivative["content_type"],
         regeneration_guidance=body.guidance,
+    )
+    creator_name, styles = await _get_creator_info()
+    await retain_observation(
+        f"Creator regenerated {derivative['platform']} {derivative['content_type']}"
+        + (f" with guidance: {body.guidance}" if body.guidance else ""),
+        tags=build_tags(
+            creator_name=creator_name,
+            styles=styles,
+            platforms=[derivative["platform"]],
+            content_type=derivative["content_type"],
+            event="regenerate",
+        ),
     )
     return DerivativeResponse(**derivative)
 

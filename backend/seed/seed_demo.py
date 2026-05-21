@@ -1,6 +1,6 @@
 """
 Demo seed script — pre-populate Hindsight with realistic creator observations
-so the second video in the demo immediately shows memory-adapted outputs.
+so the second video in the demo immediately shows persona-adapted outputs.
 
 Usage (from backend/ with .venv activated OR inside the Docker container):
   python seed/seed_demo.py
@@ -30,7 +30,7 @@ _httpx.AsyncClient.__init__ = _pa  # type: ignore
 
 from hindsight_client import Hindsight
 
-BANK_ID = os.getenv("HINDSIGHT_BANK_ID", "contentos-demo")
+BANK_ID = os.getenv("HINDSIGHT_BANK_ID", "orbitos-demo")
 BASE_URL = os.getenv("HINDSIGHT_BASE_URL", "")
 API_KEY = os.getenv("HINDSIGHT_API_KEY", "")
 
@@ -41,8 +41,8 @@ SEED_OBSERVATIONS = [
     # Hook style — strong negative signal
     "Creator rejects every hook that begins with an imperative like 'Stop doing X', 'You need to X', or 'Do this instead'.",
     "Creator has rejected every hook starting with 'In this video', 'Today I want to', or 'Let me show you'.",
-    # Tweet/length preferences
-    "Creator shortens AI-generated tweets to under 120 characters by cutting trailing explanation — the punchline must land in the first sentence.",
+    # Length preferences
+    "Creator shortens AI-generated captions to under 120 characters by cutting trailing explanation — the punchline must land in the first sentence.",
     "Creator removes filler words 'basically', 'essentially', 'actually', and 'simply' from every draft without exception.",
     # Tone preferences
     "Creator consistently rewrites passive constructions to active first-person: 'It can be seen that...' → 'I've noticed...'",
@@ -51,6 +51,8 @@ SEED_OBSERVATIONS = [
     "Creator approves LinkedIn posts that open with a specific data point or personal anecdote, not a generic observation.",
     "Creator regenerates Instagram Reels captions that use generic hashtags like #content or #tips — prefers niche, topic-specific tags.",
 ]
+
+SEED_TAGS = ["editing-behaviour", "event:seed", "seed"]
 
 
 def main() -> None:
@@ -66,11 +68,11 @@ def main() -> None:
     try:
         client.create_bank(
             bank_id=BANK_ID,
-            name="ContentOS Creator Memory",
+            name="OrbitOS Creator Memory",
             background=(
-                "A creator intelligence memory system. Tracks how a content creator "
+                "A creator persona memory system. Tracks how a YouTube long-form creator "
                 "communicates, what hook styles they prefer, how they edit AI outputs, "
-                "and what content patterns resonate with their voice."
+                "and what short-form content patterns match their persona."
             ),
         )
         print(f"Created bank: {BANK_ID}")
@@ -81,13 +83,13 @@ def main() -> None:
         client.retain(
             bank_id=BANK_ID,
             content=obs,
-            tags=["editing-behaviour", "seed"],
-            context="Pre-seeded for ContentOS hackathon demo",
+            tags=SEED_TAGS,
+            context="Pre-seeded for OrbitOS demo",
         )
         print(f"  + {obs[:80]}...")
 
     print(f"\nSeeded {len(SEED_OBSERVATIONS)} observations into bank '{BANK_ID}'")
-    print("Run a second video through the pipeline to see memory-adapted outputs.")
+    print("Run a second video through the pipeline to see persona-adapted outputs.")
 
 
 if __name__ == "__main__":

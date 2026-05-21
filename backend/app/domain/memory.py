@@ -14,6 +14,7 @@ from app.infrastructure.supabase import (
     get_editing_events_for_project,
     update_project_status,
 )
+from app.domain.tags import build_tags
 
 SYNTHESIS_SYSTEM = """\
 You are analysing a content creator's editing behaviour from their review session.
@@ -55,8 +56,22 @@ async def synthesize_and_store_observations(project_id: str) -> int:
     observations in Hindsight memory. Returns count of stored observations.
     """
     events = await get_editing_events_for_project(project_id)
+
+    # Fetch creator profile for structured tags
+    creator_name: str | None = None
+    styles: list[str] = []
+    try:
+        from app.infrastructure.supabase import _db
+        prof_res = _db().table("creator_profiles").select(
+            "creator_name, styles"
+        ).eq("id", "default").execute()
+        if prof_res.data:
+            creator_name = prof_res.data[0].get("creator_name")
+            styles = prof_res.data[0].get("styles") or []
+    except Exception:
+        pass
+
     if not events:
-        # No editing events — still archive the project so it transitions out of ready_for_review
         await update_project_status(
             project_id,
             status="archived",
@@ -80,8 +95,14 @@ async def synthesize_and_store_observations(project_id: str) -> int:
 
     observations = _parse_observations(raw)
 
+    obs_tags = build_tags(
+        creator_name=creator_name,
+        styles=styles,
+        event="complete-review",
+        extra=["editing-behaviour", f"project-{project_id[:8]}"],
+    )
     for obs in observations:
-        await retain_observation(obs, tags=["editing-behaviour", f"project-{project_id[:8]}"])
+        await retain_observation(obs, tags=obs_tags)
 
     # Mark project as archived (review complete)
     await update_project_status(
@@ -89,7 +110,7 @@ async def synthesize_and_store_observations(project_id: str) -> int:
         status="archived",
         log_entry={
             "stage": "memory_synthesis",
-            "message": f"Stored {len(observations)} observations from review",
+            "message": f"Stored {len(observations)} persona observations from review",
         },
     )
     return len(observations)
@@ -140,7 +161,12 @@ def _parse_observations(raw: str) -> list[str]:
 
 
 async def retain_diff_observation(
-    before: str, after: str, platform: str, content_type: str
+    before: str,
+    after: str,
+    platform: str,
+    content_type: str,
+    creator_name: str | None = None,
+    styles: list[str] | None = None,
 ) -> None:
     """Immediately store a Hindsight observation derived from a single draft edit.
 
@@ -177,7 +203,12 @@ async def retain_diff_observation(
         f"After ({len(after_words)} words): \"{after_preview}\""
     )
 
-    await retain_observation(
-        observation,
-        tags=["editing-behaviour", "draft-edit", platform, content_type],
+    tags = build_tags(
+        creator_name=creator_name,
+        styles=styles,
+        platforms=[platform],
+        content_type=content_type,
+        event="edit",
+        extra=["editing-behaviour", "draft-edit"],
     )
+    await retain_observation(observation, tags=tags)

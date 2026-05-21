@@ -137,6 +137,7 @@ class UpdateDerivativeRequest(BaseModel):
 
 class RegenerateDerivativeRequest(BaseModel):
     guidance: str | None = None
+    section: str | None = None  # optional: target a specific field for focused regen
 
 
 # ---------------------------------------------------------------------------

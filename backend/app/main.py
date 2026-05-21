@@ -16,8 +16,8 @@ from app.infrastructure.hindsight import init_memory_bank
 settings = get_settings()
 
 app = FastAPI(
-    title="ContentOS API",
-    description="AI-native Creator Operating System — transforms long-form content into platform-native derivatives",
+    title="OrbitOS API",
+    description="AI-native Creator OS — turns long-form YouTube videos into a week of platform-native shorts",
     version="2.0.0",
 )
 
@@ -36,7 +36,7 @@ _clips_dir = settings.clip_storage_path
 os.makedirs(_clips_dir, exist_ok=True)
 app.mount("/api/clips", StaticFiles(directory=_clips_dir), name="clips")
 
-logger = logging.getLogger("contentos")
+logger = logging.getLogger("orbitos")
 
 
 def _handle_async_exception(loop: asyncio.AbstractEventLoop, context: dict) -> None:
@@ -59,4 +59,4 @@ async def startup_event() -> None:
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "service": "contentos-api"}
+    return {"status": "ok", "service": "orbitos-api"}

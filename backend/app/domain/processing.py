@@ -5,10 +5,10 @@ Stages:
   1. INGEST     — detect input type, fetch audio or transcript
   2. TRANSCRIBE — Groq Whisper → timestamped segments
   3. RECALL     — Hindsight recall() + reflect() → memory context
-  4. EXTRACT    — Claude Haiku 4.5 → 3-5 narrative-aware moments
-  5. CLIP       — yt-dlp + ffmpeg → 9:16 vertical MP4 files (parallel)
-  6. GENERATE   — Claude Sonnet 4.5 → per-platform production briefs
-  7. PERSIST    — moments + clips + derivatives to Supabase
+  4. EXTRACT    — Claude Haiku 4.5 → 7 persona-aware moments (5-chunk strategy)
+  5. CLIP       — yt-dlp + ffmpeg → source-aspect MP4 files (parallel)
+  6. GENERATE   — Claude Sonnet 4.5 → per-platform short-form deliverables
+  7. FINALISE   — status = ready_for_review
 """
 from __future__ import annotations
 
@@ -113,7 +113,7 @@ async def run_pipeline(project_id: str, target_platforms: list[str] | None = Non
         # ------------------------------------------------------------------ #
         await update_project_status(
             project_id,
-            log_entry=_log("recall", "Recalling creator memory from Hindsight..."),
+            log_entry=_log("recall", "Recalling creator persona from Hindsight..."),
         )
 
         recall_result = await recall_memories(
@@ -128,7 +128,7 @@ async def run_pipeline(project_id: str, target_platforms: list[str] | None = Non
             )
         )
         reflection = await reflect_on_creator(
-            query="Summarise this creator's content preferences, voice, and style."
+            query="Summarise this creator's content preferences, persona, and style."
         )
 
         memory_context = {
@@ -141,41 +141,54 @@ async def run_pipeline(project_id: str, target_platforms: list[str] | None = Non
             project_id,
             log_entry=_log(
                 "recall",
-                f"Memory loaded — {recall_result.get('recall_count', 0)} memories recalled"
+                f"Persona loaded — {recall_result.get('recall_count', 0)} memories recalled"
                 if recall_result.get("recall_count", 0)
-                else "No prior memory — generating with universal heuristics",
+                else "No prior persona — generating with universal heuristics",
             ),
             memory_context=memory_context,
         )
+
+        # Fetch creator profile to get persona styles for extraction
+        persona_styles: list[str] = []
+        try:
+            from app.infrastructure.supabase import _db as _db_profile
+            prof_res = _db_profile().table("creator_profiles").select("styles").eq(
+                "id", "default"
+            ).execute()
+            if prof_res.data:
+                persona_styles = prof_res.data[0].get("styles") or []
+        except Exception:
+            pass
 
         # ------------------------------------------------------------------ #
         # STAGE 4: EXTRACT moments (Claude Haiku 4.5)
         # ------------------------------------------------------------------ #
         await update_project_status(
             project_id,
-            log_entry=_log("extract", "Identifying strongest moments with Claude Haiku..."),
+            log_entry=_log("extract", "Finding the 7 best moments for your week of shorts..."),
         )
 
         moments = await extract_moments(
             segments=segments,
             memory_reflection=reflection,
             video_intent=video_intent,
+            persona_styles=persona_styles,
         )
 
         await update_project_status(
             project_id,
-            log_entry=_log("extract", f"Found {len(moments)} strong moments"),
+            log_entry=_log("extract", f"Found {len(moments)} moments spread across the video"),
         )
 
         # Persist moments first so we have IDs for clip extraction
         db_moments = await insert_moments(project_id, moments)
 
         # ------------------------------------------------------------------ #
-        # STAGE 5: CLIP — extract 9:16 vertical MP4 files (parallel)
+        # STAGE 5: CLIP — extract source-aspect MP4 files (parallel)
         # ------------------------------------------------------------------ #
         await update_project_status(
             project_id,
-            log_entry=_log("clip", f"Extracting {len(db_moments)} vertical clips..."),
+            log_entry=_log("clip", f"Extracting {len(db_moments)} clips..."),
         )
 
         clip_results = await extract_clips_parallel(
@@ -224,7 +237,7 @@ async def run_pipeline(project_id: str, target_platforms: list[str] | None = Non
             project_id,
             log_entry=_log(
                 "generate",
-                f"Generating briefs for {len(db_moments)} moments × {platforms_str}...",
+                f"Generating short-form deliverables for {len(db_moments)} moments × {platforms_str}...",
             ),
         )
 

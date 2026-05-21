@@ -1,7 +1,7 @@
 services:
   backend:
     build: ./backend
-    container_name: contentos-backend
+    container_name: orbitos-backend
     ports:
       - "8000:8000"
     volumes:
@@ -14,7 +14,7 @@ services:
 
   frontend:
     build: ./frontend
-    container_name: contentos-frontend
+    container_name: orbitos-frontend
     ports:
       - "3000:3000"
     volumes:
