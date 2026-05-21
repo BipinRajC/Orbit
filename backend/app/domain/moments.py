@@ -8,10 +8,13 @@ between picks. Final list is sorted chronologically.
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from app.infrastructure.anthropic import HAIKU_MODEL, structured_call
 from app.infrastructure.transcription import format_transcript_for_prompt
+
+logger = logging.getLogger(__name__)
 
 NUM_CHUNKS = 5
 TARGET_MOMENT_COUNT = 7
@@ -271,20 +274,34 @@ async def _extract_from_chunk(
         "Use the extract_moments tool to return your findings."
     )
 
-    try:
-        result = await structured_call(
-            model=HAIKU_MODEL,
-            system=EXTRACTION_SYSTEM,
-            user=user_prompt,
-            tool_name="extract_moments",
-            tool_description="Extract moments from this transcript portion.",
-            input_schema=_MOMENT_SCHEMA,
-            max_tokens=2048,
-            temperature=0.3,
-        )
-        return _normalise_moments(result.get("moments", []))
-    except Exception:
-        return []
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            result = await structured_call(
+                model=HAIKU_MODEL,
+                system=EXTRACTION_SYSTEM,
+                user=user_prompt,
+                tool_name="extract_moments",
+                tool_description="Extract moments from this transcript portion.",
+                input_schema=_MOMENT_SCHEMA,
+                max_tokens=2048,
+                temperature=0.3,
+            )
+            return _normalise_moments(result.get("moments", []))
+        except Exception as exc:
+            if attempt < max_retries:
+                wait = 2 ** attempt  # 1s, 2s
+                logger.warning(
+                    "Chunk %d/%d extraction failed (attempt %d/%d), retrying in %ds: %s",
+                    chunk_num, total_chunks, attempt + 1, max_retries + 1, wait, exc,
+                )
+                await asyncio.sleep(wait)
+            else:
+                logger.error(
+                    "Chunk %d/%d extraction failed after %d attempts — skipping. Error: %s",
+                    chunk_num, total_chunks, max_retries + 1, exc,
+                )
+    return []
 
 
 def _normalise_moments(raw_moments: list[dict]) -> list[dict[str, Any]]:
@@ -311,13 +328,19 @@ def _normalise_moments(raw_moments: list[dict]) -> list[dict[str, Any]]:
         if end_ts - start_ts > MAX_MOMENT_SECS:
             end_ts = start_ts + MAX_MOMENT_SECS
 
-        # Update segment end to match clamped end_ts
+        # Update segment ends to match the clamped moment window.
+        # IMPORTANT: YouTube auto-captions have dDurationMs=0, so segment.end == segment.start.
+        # We must extend the LAST segment's end to end_ts so yt-dlp downloads the full clip.
         enforced_segs = []
-        for seg in segs:
+        for i, seg in enumerate(segs):
             s = float(seg.get("start", 0))
             e = float(seg.get("end", 0))
-            # Clamp segment end if it exceeds our window
-            if e > end_ts:
+            is_last = (i == len(segs) - 1)
+            if is_last:
+                # Last (or only) segment always covers up to end_ts
+                e = end_ts
+            elif e > end_ts:
+                # Intermediate segments clamped to window
                 e = end_ts
             enforced_segs.append({**seg, "start": s, "end": e})
 
