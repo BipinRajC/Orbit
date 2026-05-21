@@ -109,3 +109,5 @@ def estimate_cost(
     }
     in_rate, out_rate = pricing.get(model, (0.003 / 1000, 0.015 / 1000))
     return input_tokens * in_rate + output_tokens * out_rate
+
+
