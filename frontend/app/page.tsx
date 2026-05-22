@@ -880,7 +880,7 @@ export default function LandingPage() {
                 whileInView={{ scale: 1, rotate: 0 }}
                 viewport={{ once: false }}
                 transition={{ type: 'spring', stiffness: 140, delay: 0.1 }}
-                className="text-[80px] font-black leading-none text-[#FF8A65]/30"
+                className="text-[40px] font-black leading-none text-[#FF8A65]/30 lg:text-[80px]"
               >
                 {s.n}
               </motion.div>
