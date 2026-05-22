@@ -75,7 +75,7 @@ export default function MemoryPage() {
 
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between">
+        className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-[#1a1a1a] bg-[#9575CD] shadow-[3px_3px_0_#1a1a1a]">
             <Brain className="h-5 w-5 text-[#FAF7F0]" />
@@ -105,7 +105,7 @@ export default function MemoryPage() {
       {/* Stats */}
       {graph && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }} className="grid grid-cols-3 gap-4">
+          transition={{ delay: 0.1 }} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {[
             { icon: Sparkles,  label: 'Total Memories',    value: graph.stats.memories, bg: '#FFD180' },
             { icon: GitBranch, label: 'Learned Biases',    value: graph.stats.biases,   bg: '#FFB199' },
@@ -218,6 +218,8 @@ export default function MemoryPage() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
           className="overflow-hidden rounded-2xl border-2 border-[#1a1a1a] shadow-[4px_4px_0_#1a1a1a]">
+          <div className="overflow-x-auto">
+          <div className="min-w-[520px]">
           <div className="grid grid-cols-[1fr_110px_120px_90px] border-b-2 border-[#1a1a1a] bg-white px-5 py-3">
             <span className="text-[10px] font-black uppercase tracking-widest text-[#1a1a1a]/50">Memory</span>
             <span className="text-[10px] font-black uppercase tracking-widest text-[#1a1a1a]/50">Kind</span>
@@ -236,8 +238,7 @@ export default function MemoryPage() {
                     'grid grid-cols-[1fr_110px_120px_90px] items-center border-b border-[#1a1a1a]/10 px-5 py-3 last:border-b-0',
                     i % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F0]',
                   )}>
-                  <span className="pr-3 text-sm font-semibold text-[#1a1a1a]">{node.full_text || node.label}</span>
-                  <span className="inline-flex w-fit items-center rounded-full border border-[#1a1a1a]/20 px-2.5 py-0.5 text-[10px] font-bold capitalize"
+                  <span className="pr-3 text-sm font-semibold text-[#1a1a1a]">{node.full_text || node.label}</span>                  <span className="inline-flex w-fit items-center rounded-full border border-[#1a1a1a]/20 px-2.5 py-0.5 text-[10px] font-bold capitalize"
                     style={{ background: c.fill, color: c.text }}>
                     {node.kind}
                   </span>
@@ -261,6 +262,9 @@ export default function MemoryPage() {
                 </div>
               )
             })}
+          </div>
+          </div>
+          </div>
         </motion.div>
       )}
 
