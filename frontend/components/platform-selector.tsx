@@ -50,12 +50,12 @@ export function PlatformSelector({ selected, onChange, disabled }: Props) {
           .join(' ') + ` (${selected.length})`
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative w-full">
       <button
         type="button"
         onClick={() => !disabled && setOpen(o => !o)}
         disabled={disabled}
-        className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-3 text-sm text-zinc-700 outline-none transition-colors hover:border-zinc-400 disabled:opacity-50"
+        className="flex w-full items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-3 text-sm text-zinc-700 outline-none transition-colors hover:border-zinc-400 disabled:opacity-50"
       >
         <span className="text-xs font-medium text-zinc-500">Platforms:</span>
         <span className="font-medium">{label}</span>

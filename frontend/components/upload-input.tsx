@@ -115,46 +115,49 @@ export function UploadInput({ onProjectCreated }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-3">
-      {/* URL + Process row */}
-      <div className="flex gap-3">
-        <div className="relative flex-1">
-          <input
-            type="url"
-            value={url}
-            onChange={e => setUrl(e.target.value)}
-            onFocus={() => setInputFocused(true)}
-            onBlur={() => setInputFocused(false)}
-            disabled={loading}
-            className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-0 disabled:opacity-50"
-          />
-          {/* Animated placeholder — only shown when input is empty and unfocused */}
-          {!url && (
-            <div
-              className="pointer-events-none absolute inset-0 flex items-center px-4"
-              aria-hidden="true"
-            >
-              <span className="text-sm text-zinc-400 truncate">
-                {inputFocused
-                  ? 'Paste a YouTube URL…'
-                  : typedPlaceholder || 'Paste a YouTube URL…'}
-                {!inputFocused && typedPlaceholder && (
-                  <span
-                    className={`ml-px inline-block w-[1.5px] h-[14px] align-middle bg-zinc-400 transition-opacity duration-100 ${showCursor ? 'opacity-100' : 'opacity-0'}`}
-                  />
-                )}
-              </span>
-            </div>
-          )}
-        </div>
-        <PlatformSelector
-          selected={platforms}
-          onChange={setPlatforms}
+      {/* URL row — full width on mobile */}
+      <div className="relative w-full">
+        <input
+          type="url"
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          onFocus={() => setInputFocused(true)}
+          onBlur={() => setInputFocused(false)}
           disabled={loading}
+          className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-0 disabled:opacity-50"
         />
+        {!url && (
+          <div
+            className="pointer-events-none absolute inset-0 flex items-center px-4"
+            aria-hidden="true"
+          >
+            <span className="text-sm text-zinc-400 truncate">
+              {inputFocused
+                ? 'Paste a YouTube URL…'
+                : typedPlaceholder || 'Paste a YouTube URL…'}
+              {!inputFocused && typedPlaceholder && (
+                <span
+                  className={`ml-px inline-block w-[1.5px] h-[14px] align-middle bg-zinc-400 transition-opacity duration-100 ${showCursor ? 'opacity-100' : 'opacity-0'}`}
+                />
+              )}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Platforms + Process row */}
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <PlatformSelector
+            selected={platforms}
+            onChange={setPlatforms}
+            disabled={loading}
+          />
+        </div>
         <button
           type="submit"
           disabled={loading || !url.trim() || platforms.length === 0}
-          className="rounded-lg bg-zinc-900 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="shrink-0 rounded-lg bg-zinc-900 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {loading ? 'Processing...' : 'Process'}
         </button>
