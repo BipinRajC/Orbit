@@ -119,7 +119,7 @@ export default function ProjectPage() {
           Projects
         </button>
 
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <h1 className="text-xl font-bold text-[#1a1a1a] tracking-tight">
               {project.title ?? 'Processing...'}
