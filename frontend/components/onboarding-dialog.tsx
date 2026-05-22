@@ -260,7 +260,7 @@ export function OnboardingDialog({ forceOpen = false, onClose, onComplete }: Onb
             subtitle="YouTube is your source — pick the destinations"
             step={step} onBack={() => setStep(1)} onNext={() => setStep(3)} canAdvance={canAdvance}
           >
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {PLATFORM_OPTIONS.map(p => {
                 const active = platforms.includes(p.id)
                 return (
