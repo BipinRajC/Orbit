@@ -264,7 +264,6 @@ export default function MemoryPage() {
             })}
           </div>
           </div>
-          </div>
         </motion.div>
       )}
 
