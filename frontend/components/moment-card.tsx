@@ -105,7 +105,7 @@ export function MomentCard({ moment, index, sourceUrl, targetPlatforms }: Props)
       {/* Platform tab bar */}
       {platforms.length > 0 && (
         <div className="border-b border-zinc-100 px-5 pt-4">
-          <div className="flex items-center gap-1 text-xs">
+          <div className="flex items-center gap-1 overflow-x-auto text-xs pb-0.5 scrollbar-none">
             {platforms.map(p => {
               const meta = PLATFORM_META[p]
               const isActive = p === activePlatform && !showCompare
