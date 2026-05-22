@@ -204,7 +204,7 @@ export default function ProfilePage() {
 
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between">
+        className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-[#1a1a1a] bg-[#FF8A65] shadow-[3px_3px_0_#1a1a1a]">
             <SlidersHorizontal className="h-5 w-5 text-[#1a1a1a]" />
