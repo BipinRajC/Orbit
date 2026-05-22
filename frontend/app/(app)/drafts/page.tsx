@@ -129,7 +129,7 @@ export default function DraftsPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="mb-5 flex items-center gap-2">
+      <div className="mb-5 flex flex-wrap items-center gap-2">
         <Filter className="h-3.5 w-3.5 text-[#1a1a1a]/40" />
         {FILTERS.map(f => (
           <button
