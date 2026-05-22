@@ -177,7 +177,7 @@ export default function DashboardPage() {
         >
           What OrbitOS does for you
         </motion.p>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURE_CARDS.map((f, i) => (
             <motion.div
               key={f.title}
@@ -206,7 +206,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="mb-8 grid grid-cols-3 gap-4"
+          className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3"
         >
           {[
             { label: 'Total',      value: projects.length,                                                  color: '#1a1a1a',  bg: '#FFD180' },
