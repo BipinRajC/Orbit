@@ -17,18 +17,24 @@ def _extract_video_id(url: str) -> str | None:
 
 
 def _ytdlp_auth_args() -> list[str]:
-    """Extra yt-dlp args for cookies / proxy.
+    """Extra yt-dlp args for cookies / proxy."""
+    import logging
+    logger = logging.getLogger("orbitos.youtube")
 
-    YT_COOKIES_FILE: path to a Netscape-format cookies.txt exported from a
-      logged-in browser. Authenticates the request and bypasses most
-      datacenter-IP bot challenges.
-    HTTPS_PROXY / HTTP_PROXY: standard proxy env vars; yt-dlp respects
-      these automatically, but we also forward via --proxy for clarity.
-    """
     args: list[str] = []
     cookies_file = os.getenv("YT_COOKIES_FILE")
-    if cookies_file and os.path.exists(cookies_file):
-        args.extend(["--cookies", cookies_file])
+    if cookies_file:
+        if os.path.exists(cookies_file):
+            logger.info("yt-dlp: using cookies from %s", cookies_file)
+            args.extend(["--cookies", cookies_file])
+        else:
+            logger.warning(
+                "yt-dlp: YT_COOKIES_FILE=%s but file NOT found — running without cookies",
+                cookies_file,
+            )
+    else:
+        logger.warning("yt-dlp: YT_COOKIES_FILE not set — yt-dlp will run without cookies")
+
     proxy = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
     if proxy:
         args.extend(["--proxy", proxy])
@@ -144,74 +150,60 @@ async def fetch_transcript_from_youtube(url: str) -> tuple[list[dict], str | Non
 
 
 def _fetch_via_youtube_transcript_api(video_id: str) -> list[dict]:
-    """Synchronous helper — runs in a thread.
+    """Synchronous helper — runs in a thread. Pinned to 0.6.3 API."""
+    import logging
+    logger = logging.getLogger("orbitos.youtube")
 
-    Uses youtube-transcript-api to fetch captions directly from YouTube's
-    TimedText endpoint. Tries manual English first, then auto-generated,
-    then any translatable language translated to English.
-
-    Authentication (REQUIRED in production — Render/cloud IPs are 429'd):
-      Set YT_COOKIES_FILE to a Netscape cookies.txt from a logged-in browser.
-      Optionally set WEBSHARE_PROXY_USERNAME + WEBSHARE_PROXY_PASSWORD for
-      residential proxy routing (more reliable long-term).
-    """
     from youtube_transcript_api import YouTubeTranscriptApi  # type: ignore
     from youtube_transcript_api._errors import (  # type: ignore
         TranscriptsDisabled,
         NoTranscriptFound,
     )
 
-    proxies = _build_proxies_dict()
-    proxy_config = _build_webshare_proxy_config()
     cookies_file = os.getenv("YT_COOKIES_FILE")
-
-    # Build constructor kwargs — only 1.x accepts these; 0.6.x will raise
-    # TypeError which we catch below.
-    ctor_kwargs: dict = {}
-    if proxy_config is not None:
-        ctor_kwargs["proxy_config"] = proxy_config
-    if cookies_file and os.path.exists(cookies_file):
-        # 1.x accepts `cookies` kwarg pointing at a Netscape cookies.txt
-        ctor_kwargs["cookies"] = cookies_file
-
-    transcript_list = None
-    try:
-        api = YouTubeTranscriptApi(**ctor_kwargs)
-        # list_transcripts works as an instance method in 1.x AND as a
-        # classmethod callable via an instance in 0.6.x — safe for both.
-        transcript_list = api.list_transcripts(video_id)
-    except TypeError:
-        # 0.6.x constructor accepts no kwargs → fall back to class method.
-        try:
-            transcript_list = YouTubeTranscriptApi.list_transcripts(
-                video_id, proxies=proxies or None,
+    if cookies_file:
+        if os.path.exists(cookies_file):
+            logger.info("youtube-transcript-api: cookies file found at %s", cookies_file)
+        else:
+            logger.warning(
+                "youtube-transcript-api: YT_COOKIES_FILE=%s but file NOT found — "
+                "requests will be unauthenticated and may hit 429",
+                cookies_file,
             )
-        except TranscriptsDisabled:
-            return []
+            cookies_file = None
+    else:
+        logger.warning(
+            "youtube-transcript-api: YT_COOKIES_FILE not set — "
+            "requests from cloud IPs will likely be 429'd"
+        )
+
+    proxies = _build_proxies_dict() or None
+
+    try:
+        # 0.6.3 static API: list_transcripts(video_id, proxies=None, cookies=None)
+        transcript_list = YouTubeTranscriptApi.list_transcripts(
+            video_id,
+            proxies=proxies,
+            cookies=cookies_file,
+        )
     except TranscriptsDisabled:
+        logger.info("Transcripts disabled for %s", video_id)
         return []
 
-    if transcript_list is None:
-        return []
-
-    # Order of preference:
     en_codes = ["en", "en-US", "en-GB", "en-CA", "en-AU", "en-IN"]
-
     transcript = None
-    # 1. Manually uploaded English
+
     try:
         transcript = transcript_list.find_manually_created_transcript(en_codes)
     except NoTranscriptFound:
         pass
 
-    # 2. Auto-generated English
     if transcript is None:
         try:
             transcript = transcript_list.find_generated_transcript(en_codes)
         except NoTranscriptFound:
             pass
 
-    # 3. Anything that's translatable to English
     if transcript is None:
         for t in transcript_list:
             if t.is_translatable:
@@ -225,7 +217,6 @@ def _fetch_via_youtube_transcript_api(video_id: str) -> list[dict]:
         return []
 
     raw = transcript.fetch()
-    # Library returns objects in newer versions, dicts in older — handle both.
     segments: list[dict] = []
     for item in raw:
         start = item["start"] if isinstance(item, dict) else item.start
