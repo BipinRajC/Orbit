@@ -17,6 +17,7 @@ import {
   Layers,
   ChevronDown,
   Archive,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -30,6 +31,7 @@ export default function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null)
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [memoriesSaved, setMemoriesSaved] = useState<number | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -72,6 +74,19 @@ export default function ProjectPage() {
       await fetchProject()
     } finally {
       setCompleting(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!project) return
+    if (!confirm('Delete this project and all its clips? This cannot be undone.')) return
+    setDeleting(true)
+    try {
+      await api.projects.delete(project.id)
+      router.push('/projects')
+    } catch {
+      alert('Failed to delete project. Please try again.')
+      setDeleting(false)
     }
   }
 
@@ -168,6 +183,20 @@ export default function ProjectPage() {
               </span>
             </div>
           )}
+
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            title="Delete project"
+            className="shrink-0 flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-xs text-zinc-400 hover:border-red-200 hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40 cursor-pointer"
+          >
+            {deleting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+            Delete
+          </button>
         </div>
       </div>
 

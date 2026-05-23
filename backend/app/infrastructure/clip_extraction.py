@@ -56,7 +56,22 @@ async def extract_clip(
 
         shutil.move(str(stitched), str(final_path))
         logger.info("Clip saved (source aspect): %s", final_path)
-        return str(final_path)
+
+        # Upload to Supabase Storage and return the public CDN URL.
+        # Fall back to the local path if Supabase is unavailable so the
+        # pipeline doesn't fail entirely on a transient upload error.
+        try:
+            from app.infrastructure.supabase import upload_clip
+            object_path = f"{project_id}/{moment_id}.mp4"
+            public_url = await asyncio.to_thread(upload_clip, str(final_path), object_path)
+            logger.info("Clip uploaded to Supabase Storage: %s", public_url)
+            return public_url
+        except Exception as upload_exc:
+            logger.warning(
+                "Supabase Storage upload failed for moment %s — storing local path: %s",
+                moment_id, upload_exc,
+            )
+            return str(final_path)
 
     except asyncio.TimeoutError:
         logger.error("Clip extraction timed out for moment %s", moment_id)

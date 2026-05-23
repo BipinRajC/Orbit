@@ -214,7 +214,9 @@ async def run_pipeline(project_id: str, target_platforms: list[str] | None = Non
         for moment_id, clip_path in clip_results.items():
             start_t, end_t = moment_times.get(moment_id, (0, 0))
             if clip_path:
-                clip_url = f"/api/clips/{project_id}/{moment_id}.mp4"
+                # clip_path is the Supabase CDN URL (https://...) or a local
+                # path fallback — store whatever extract_clip returned directly.
+                clip_url = clip_path
             else:
                 # Store YT embed URL so the frontend can show a playable preview
                 clip_url = _yt_embed_url(source_url, start_t, end_t)

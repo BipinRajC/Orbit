@@ -286,7 +286,7 @@ export default function DashboardPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 * i }}
               >
-                <ProjectCard project={p} />
+                <ProjectCard project={p} onDelete={fetchProjects} />
               </motion.div>
             ))}
           </motion.div>

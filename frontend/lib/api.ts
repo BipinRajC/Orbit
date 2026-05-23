@@ -18,6 +18,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const text = await res.text()
     throw new Error(`API ${res.status}: ${text}`)
   }
+  if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
 
@@ -88,6 +89,10 @@ export const api = {
     completeReview: (id: string): Promise<{ message: string; project_id: string; observations_saved?: number }> =>
       request<{ message: string; project_id: string }>(`/projects/${id}/complete-review`, { method: 'POST' })
         .then(r => { bust(`projects/${id}`); bust('projects/list'); return r }),
+
+    delete: (id: string): Promise<void> =>
+      request<void>(`/projects/${id}`, { method: 'DELETE' })
+        .then(() => { bust('projects/'); bust(`projects/${id}`) }),
   },
 
   derivatives: {

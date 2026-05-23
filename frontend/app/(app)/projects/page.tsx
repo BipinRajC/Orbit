@@ -137,7 +137,7 @@ export default function ProjectsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.04 * i }}
             >
-              <ProjectCard project={p} />
+              <ProjectCard project={p} onDelete={fetchProjects} />
             </motion.div>
           ))}
         </motion.div>

@@ -7,28 +7,16 @@ interface Props {
   sourceUrl: string
   startSeconds: number
   endSeconds: number
-  /** Optional pre-extracted clip URL.
-   *  - If it starts with `/api/` → serve from backend as <video>
-   *  - If it's a youtube.com/embed URL → use it directly as an iframe
-   *  - Otherwise fall back to constructing the embed from sourceUrl + timestamps
-   */
   clipUrl?: string | null
-  /** Required for the "Export as 9:16" button */
   projectId?: string
   momentId?: string
 }
 
-/**
- * Extract YouTube video ID from various URL formats.
- */
 function extractVideoId(url: string): string | null {
-  // youtube.com/watch?v=ID
   const watchMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
   if (watchMatch) return watchMatch[1]
-  // youtu.be/ID
   const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/)
   if (shortMatch) return shortMatch[1]
-  // youtube.com/embed/ID
   const embedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/)
   if (embedMatch) return embedMatch[1]
   return null
@@ -56,14 +44,13 @@ export function VideoClipPreview({
       const { url } = await api.clips.exportVertical(projectId, momentId)
       const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api').replace(/\/api$/, '')
       const absoluteUrl = url.startsWith('http') ? url : `${apiBase}${url}`
-      // Trigger browser download
       const a = document.createElement('a')
       a.href = absoluteUrl
       a.download = `clip_9x16_${momentId}.mp4`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
-    } catch (err) {
+    } catch {
       setExportError('Export failed — try again')
     } finally {
       setExporting(false)
@@ -86,12 +73,10 @@ export function VideoClipPreview({
     </div>
   ) : null
 
-  // --- Determine what to render ---
-
-  // 1. Server-extracted MP4 clip (source aspect)
-  if (clipUrl?.startsWith('/api/')) {
+  // 1. Real clip — Supabase CDN URL or local /api/ path
+  if (clipUrl && !clipUrl.includes('youtube.com')) {
     const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api').replace(/\/api$/, '')
-    const absoluteUrl = `${apiBase}${clipUrl}`
+    const absoluteUrl = clipUrl.startsWith('http') ? clipUrl : `${apiBase}${clipUrl}`
     return (
       <div className="overflow-hidden rounded-xl border-2 border-[#1a1a1a] bg-[#1a1a1a]">
         <div className="flex items-center justify-between px-4 py-2">
@@ -100,7 +85,6 @@ export function VideoClipPreview({
             {formatTimestamp(startSeconds)} — {formatTimestamp(endSeconds)}
           </span>
         </div>
-        {/* Source-aspect video container — 16:9 for landscape YouTube source */}
         <div className="w-full max-w-2xl mx-auto">
           <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
             <video
@@ -116,7 +100,7 @@ export function VideoClipPreview({
     )
   }
 
-  // 2. Already a YouTube embed URL (stored fallback from backend)
+  // 2. YouTube embed URL stored in DB as extraction fallback
   if (clipUrl?.includes('youtube.com/embed/')) {
     return (
       <div className="overflow-hidden rounded-xl border-2 border-[#1a1a1a] bg-[#1a1a1a]">
@@ -140,7 +124,7 @@ export function VideoClipPreview({
     )
   }
 
-  // 3. Fallback — construct YouTube embed from sourceUrl + timestamps
+  // 3. No clip URL — construct YouTube embed from sourceUrl + timestamps
   const videoId = extractVideoId(sourceUrl)
   if (!videoId) return null
 
@@ -148,16 +132,12 @@ export function VideoClipPreview({
 
   return (
     <div className="overflow-hidden rounded-xl border-2 border-[#1a1a1a] bg-[#1a1a1a]">
-      {/* Label */}
       <div className="flex items-center justify-between px-4 py-2">
-        <span className="text-xs font-bold text-white/70">
-          Source clip
-        </span>
+        <span className="text-xs font-bold text-white/70">Source clip</span>
         <span className="font-mono text-[10px] text-white/40">
           {formatTimestamp(startSeconds)} — {formatTimestamp(endSeconds)}
         </span>
       </div>
-      {/* 16:9 embed */}
       <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
         <iframe
           className="absolute inset-0 h-full w-full"

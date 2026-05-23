@@ -28,6 +28,7 @@ from app.infrastructure.supabase import (
     record_editing_event,
     upsert_profile,
     get_profile,
+    delete_project,
 )
 from app.infrastructure.hindsight import retain_observation, recall_memories, recall_memories_rich
 from app.domain.generation import regenerate_single_derivative
@@ -271,6 +272,15 @@ async def get_project(project_id: UUID) -> ProjectResponse:
     return ProjectResponse(**project)
 
 
+@router.delete("/projects/{project_id}", status_code=204)
+async def delete_project_endpoint(project_id: UUID) -> None:
+    """Delete a project and all its associated resources (clips, moments, derivatives)."""
+    project = await get_project_with_details(str(project_id))
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    await delete_project(str(project_id))
+
+
 @router.post("/projects/{project_id}/complete-review")
 async def complete_review(
     project_id: UUID,
@@ -396,22 +406,64 @@ async def serve_clip(project_id: str, moment_id: str) -> FileResponse:
 async def export_clip_vertical(project_id: str, moment_id: str) -> dict:
     """Generate a 9:16 vertical version of the clip on demand. Returns the URL."""
     import asyncio as _asyncio
+    import tempfile as _tempfile
+    import httpx
     from app.infrastructure.clip_extraction import _crop_to_vertical_on_demand
+    from app.infrastructure.supabase import get_moment, upload_clip
 
     settings = get_settings()
-    src = str(Path(settings.clip_storage_path) / project_id / f"{moment_id}.mp4")
-    dst = str(Path(settings.clip_storage_path) / project_id / f"{moment_id}_9x16.mp4")
 
-    if not Path(src).exists():
-        raise HTTPException(status_code=404, detail="Source clip missing — process the project first")
+    # Resolve the source clip URL from the DB record.
+    moment = await get_moment(moment_id)
+    clip_url = moment.get("clip_url") if moment else None
 
-    if not Path(dst).exists():
-        try:
-            await _asyncio.to_thread(_crop_to_vertical_on_demand, src, dst)
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"Crop failed: {exc}")
+    if clip_url and clip_url.startswith("https://"):
+        # New path: source lives in Supabase Storage CDN.
+        dst_object = f"{project_id}/{moment_id}_9x16.mp4"
 
-    return {"url": f"/api/clips/{project_id}/{moment_id}_9x16.mp4"}
+        with _tempfile.TemporaryDirectory(prefix="orbitos_export_") as tmp_dir:
+            tmp_src = str(Path(tmp_dir) / "source.mp4")
+            tmp_dst = str(Path(tmp_dir) / "vertical.mp4")
+
+            # Download source clip from CDN into a temp file for ffmpeg.
+            try:
+                async with httpx.AsyncClient(timeout=120.0) as client:
+                    resp = await client.get(clip_url)
+                    resp.raise_for_status()
+                    with open(tmp_src, "wb") as f:
+                        f.write(resp.content)
+            except Exception as exc:
+                raise HTTPException(status_code=502, detail=f"Failed to fetch source clip: {exc}")
+
+            # Crop to 9:16.
+            try:
+                await _asyncio.to_thread(_crop_to_vertical_on_demand, tmp_src, tmp_dst)
+            except Exception as exc:
+                raise HTTPException(status_code=500, detail=f"Crop failed: {exc}")
+
+            # Upload the vertical clip to Supabase Storage.
+            try:
+                public_url = await _asyncio.to_thread(upload_clip, tmp_dst, dst_object)
+            except Exception as exc:
+                raise HTTPException(status_code=500, detail=f"Upload failed: {exc}")
+
+        return {"url": public_url}
+
+    else:
+        # Legacy path: local file (backward compat with old DB records).
+        src = str(Path(settings.clip_storage_path) / project_id / f"{moment_id}.mp4")
+        dst = str(Path(settings.clip_storage_path) / project_id / f"{moment_id}_9x16.mp4")
+
+        if not Path(src).exists():
+            raise HTTPException(status_code=404, detail="Source clip missing — process the project first")
+
+        if not Path(dst).exists():
+            try:
+                await _asyncio.to_thread(_crop_to_vertical_on_demand, src, dst)
+            except Exception as exc:
+                raise HTTPException(status_code=500, detail=f"Crop failed: {exc}")
+
+        return {"url": f"/api/clips/{project_id}/{moment_id}_9x16.mp4"}
 
 
 # ---------------------------------------------------------------------------

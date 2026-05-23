@@ -303,3 +303,63 @@ async def get_profile() -> dict[str, Any] | None:
         return result.data
     except Exception:
         return None
+
+
+# ---------------------------------------------------------------------------
+# Storage
+# ---------------------------------------------------------------------------
+
+async def delete_project(project_id: str) -> None:
+    """Delete a project and all associated resources.
+
+    Order matters — foreign key dependencies go first:
+      1. Supabase Storage  — clips/{project_id}/*
+      2. editing_events    — linked via derivative_id
+      3. derivatives       — linked via project_id
+      4. moments           — linked via project_id
+      5. content_projects  — the root row
+    """
+    # 1. Storage — list and bulk-delete all objects under clips/{project_id}/
+    try:
+        objects = _db().storage.from_("clips").list(path=project_id)
+        if objects:
+            paths = [f"{project_id}/{obj['name']}" for obj in objects]
+            _db().storage.from_("clips").remove(paths)
+    except Exception as exc:
+        # Non-fatal — bucket may be empty or Storage may be unreachable
+        print(f"⚠️  Storage cleanup failed for project {project_id}: {exc}")
+
+    # 2. editing_events — must go before derivatives
+    deriv_result = _db().table("derivatives").select("id").eq(
+        "project_id", project_id
+    ).execute()
+    derivative_ids = [d["id"] for d in (deriv_result.data or [])]
+    if derivative_ids:
+        _db().table("editing_events").delete().in_(
+            "derivative_id", derivative_ids
+        ).execute()
+
+    # 3. derivatives
+    _db().table("derivatives").delete().eq("project_id", project_id).execute()
+
+    # 4. moments
+    _db().table("moments").delete().eq("project_id", project_id).execute()
+
+    # 5. project row
+    _db().table("content_projects").delete().eq("id", project_id).execute()
+
+
+def upload_clip(local_path: str, object_path: str) -> str:
+    """Upload a local MP4 to Supabase Storage bucket 'clips' and return its public URL.
+
+    This is synchronous — wrap with asyncio.to_thread() when calling from async code.
+    Uses upsert so re-processing the same moment overwrites the existing file.
+    """
+    with open(local_path, "rb") as f:
+        data = f.read()
+    _db().storage.from_("clips").upload(
+        path=object_path,
+        file=data,
+        file_options={"content-type": "video/mp4", "upsert": "true"},
+    )
+    return _db().storage.from_("clips").get_public_url(object_path)
