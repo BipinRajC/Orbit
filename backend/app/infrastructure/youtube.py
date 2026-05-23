@@ -3,8 +3,17 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import tempfile
 from pathlib import Path
+
+
+_YT_ID_RE = re.compile(r"(?:v=|youtu\.be/|/shorts/|/embed/)([a-zA-Z0-9_-]{11})")
+
+
+def _extract_video_id(url: str) -> str | None:
+    m = _YT_ID_RE.search(url)
+    return m.group(1) if m else None
 
 
 async def fetch_audio(url: str) -> tuple[str, str | None]:
@@ -65,7 +74,13 @@ async def fetch_transcript_from_youtube(url: str) -> tuple[list[dict], str | Non
     Try to fetch a YouTube transcript (manual or auto-generated) — much
     faster + cheaper than running Whisper on the audio.
 
-    Falls back to returning empty list (caller should then transcribe via Whisper).
+    Strategy:
+      1. youtube-transcript-api (direct TimedText API call, no yt-dlp,
+         not affected by player_client breakage / bot-detection on
+         cloud IPs). Primary path.
+      2. yt-dlp with broad sub-langs + player-client overrides. Fallback
+         for the rare case where (1) fails (e.g. age-restricted videos).
+      3. Return [] so the caller falls back to Whisper.
 
     Returns:
         (segments, title)  — segments is [] if no captions available.
@@ -73,18 +88,166 @@ async def fetch_transcript_from_youtube(url: str) -> tuple[list[dict], str | Non
     import logging
     logger = logging.getLogger("orbitos.youtube")
 
+    # ---------- Strategy 1: youtube-transcript-api ---------- #
+    video_id = _extract_video_id(url)
+    if video_id:
+        try:
+            segments = await asyncio.wait_for(
+                asyncio.to_thread(_fetch_via_youtube_transcript_api, video_id),
+                timeout=30.0,
+            )
+            if segments:
+                logger.info(
+                    "Fetched %d caption segments via youtube-transcript-api for %s",
+                    len(segments), video_id,
+                )
+                # title not available from this API — caller will fill in
+                # later via the yt-dlp audio download, or we fetch it now.
+                title = await _fetch_title_only(url)
+                return segments, title
+        except asyncio.TimeoutError:
+            logger.warning(
+                "youtube-transcript-api timed out for %s — trying yt-dlp", video_id,
+            )
+        except Exception as exc:
+            logger.warning(
+                "youtube-transcript-api failed for %s (%s) — trying yt-dlp",
+                video_id, exc,
+            )
+
+    # ---------- Strategy 2: yt-dlp ---------- #
+    segments, title = await _fetch_captions_via_ytdlp(url)
+    if segments:
+        return segments, title
+
+    return [], title
+
+
+def _fetch_via_youtube_transcript_api(video_id: str) -> list[dict]:
+    """Synchronous helper — runs in a thread.
+
+    Uses youtube-transcript-api to fetch captions directly from YouTube's
+    TimedText endpoint. Tries manual English first, then auto-generated,
+    then any translatable language translated to English.
+    """
+    from youtube_transcript_api import YouTubeTranscriptApi  # type: ignore
+    from youtube_transcript_api._errors import (  # type: ignore
+        TranscriptsDisabled,
+        NoTranscriptFound,
+    )
+
+    try:
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+    except TranscriptsDisabled:
+        return []
+    except Exception:
+        raise
+
+    # Order of preference:
+    en_codes = ["en", "en-US", "en-GB", "en-CA", "en-AU", "en-IN"]
+
+    transcript = None
+    # 1. Manually uploaded English
+    try:
+        transcript = transcript_list.find_manually_created_transcript(en_codes)
+    except NoTranscriptFound:
+        pass
+
+    # 2. Auto-generated English
+    if transcript is None:
+        try:
+            transcript = transcript_list.find_generated_transcript(en_codes)
+        except NoTranscriptFound:
+            pass
+
+    # 3. Anything that's translatable to English
+    if transcript is None:
+        for t in transcript_list:
+            if t.is_translatable:
+                try:
+                    transcript = t.translate("en")
+                    break
+                except Exception:
+                    continue
+
+    if transcript is None:
+        return []
+
+    raw = transcript.fetch()
+    # Library returns objects in newer versions, dicts in older — handle both.
+    segments: list[dict] = []
+    for item in raw:
+        start = item["start"] if isinstance(item, dict) else item.start
+        duration = item["duration"] if isinstance(item, dict) else item.duration
+        text = item["text"] if isinstance(item, dict) else item.text
+        text = (text or "").strip()
+        if not text:
+            continue
+        segments.append({
+            "start": float(start),
+            "end": float(start) + float(duration),
+            "text": text,
+        })
+    return segments
+
+
+async def _fetch_title_only(url: str) -> str | None:
+    """Fetch just the video title via yt-dlp (fast, no download)."""
+    import logging
+    logger = logging.getLogger("orbitos.youtube")
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "yt-dlp",
+            "--no-playlist",
+            "--skip-download",
+            "--print", "title",
+            "--no-warnings",
+            "--no-check-certificate",
+            url,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+        title = stdout.decode("utf-8", errors="replace").strip().splitlines()
+        return title[-1] if title else None
+    except Exception as exc:
+        logger.info("Title fetch failed for %s: %s", url, exc)
+        return None
+
+
+async def _fetch_captions_via_ytdlp(url: str) -> tuple[list[dict], str | None]:
+    """Fallback caption fetch via yt-dlp.
+
+    Tries the default player clients first, then retries with explicit
+    player_client overrides if no captions are produced. NOTE: the
+    `android` client was broken by YouTube in late 2024 and now returns
+    empty caption manifests — we use `mweb`/`tv`/`web` instead.
+    """
+    import logging
+    logger = logging.getLogger("orbitos.youtube")
+
+    # First attempt: yt-dlp defaults (works for most videos).
+    segments, title = await _ytdlp_caption_attempt(url, player_client=None)
+    if segments:
+        return segments, title
+
+    # Second attempt: explicit player_client override for the rare case
+    # where the default web client gets bot-challenged.
+    logger.info("yt-dlp default client returned no captions — retrying with mweb,tv")
+    segments2, title2 = await _ytdlp_caption_attempt(url, player_client="mweb,tv,web")
+    return segments2, title2 or title
+
+
+async def _ytdlp_caption_attempt(
+    url: str, player_client: str | None
+) -> tuple[list[dict], str | None]:
+    import logging
+    logger = logging.getLogger("orbitos.youtube")
+
     tmp_dir = tempfile.mkdtemp(prefix="contentos_captions_")
     output_template = os.path.join(tmp_dir, "%(id)s.%(ext)s")
 
-    # Fetch BOTH manual and auto-generated subs, and accept any English
-    # variant (en, en-US, en-GB, en-orig, a.en auto-translated, etc.).
-    # yt-dlp will prefer manual when both exist.
-    #
-    # `--extractor-args youtube:player_client=android` is the standard
-    # workaround for YouTube's bot-detection on cloud IPs — the android
-    # player endpoint returns caption tracks reliably where the default
-    # `web` client increasingly fails with "Sign in to confirm you're not
-    # a bot" since 2024.
     cmd = [
         "yt-dlp",
         "--no-playlist",
@@ -97,10 +260,10 @@ async def fetch_transcript_from_youtube(url: str) -> tuple[list[dict], str | Non
         "--print", "title",
         "--no-simulate",                 # --print implies --simulate; override it
         "--no-check-certificate",        # corp proxy (CrowdStrike) intercepts TLS
-        "--no-warnings",
-        "--extractor-args", "youtube:player_client=android,web",
         url,
     ]
+    if player_client:
+        cmd.extend(["--extractor-args", f"youtube:player_client={player_client}"])
 
     proc = await asyncio.create_subprocess_exec(
         *cmd,
@@ -108,26 +271,22 @@ async def fetch_transcript_from_youtube(url: str) -> tuple[list[dict], str | Non
         stderr=asyncio.subprocess.PIPE,
     )
     try:
-        # 180s — yt-dlp can be slow on cold-start containers / when YT
-        # challenges the request. Captions are still cheaper than Whisper
-        # so it's worth waiting.
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=180.0)
     except asyncio.TimeoutError:
         proc.kill()
-        logger.warning("yt-dlp caption fetch timed out for %s — falling back to Whisper", url)
+        logger.warning("yt-dlp caption fetch timed out for %s", url)
         return [], None
 
     title = stdout.decode("utf-8", errors="replace").strip().splitlines()[-1] if stdout else None
     stderr_text = stderr.decode("utf-8", errors="replace") if stderr else ""
 
-    # Prefer json3 (richer timing info) but accept vtt as a fallback.
     json3_files = sorted(Path(tmp_dir).glob("*.json3"))
     vtt_files = sorted(Path(tmp_dir).glob("*.vtt"))
 
     if not json3_files and not vtt_files:
         logger.warning(
-            "No captions found for %s (yt-dlp exit %d). stderr: %s",
-            url, proc.returncode, stderr_text[:500],
+            "yt-dlp produced no caption file for %s (exit %d, client=%s). stderr: %s",
+            url, proc.returncode, player_client or "default", stderr_text[:600],
         )
         return [], title
 
@@ -147,14 +306,17 @@ async def fetch_transcript_from_youtube(url: str) -> tuple[list[dict], str | Non
             chosen = sorted(vtt_files, key=_rank)[0]
             segments = _parse_vtt(chosen.read_text(encoding="utf-8"))
     except Exception as exc:
-        logger.warning("Failed to parse caption file %s: %s — falling back to Whisper", chosen, exc)
+        logger.warning("Failed to parse caption file %s: %s", chosen, exc)
         return [], title
 
     if not segments:
-        logger.warning("Caption file %s produced 0 segments — falling back to Whisper", chosen.name)
+        logger.warning("Caption file %s produced 0 segments", chosen.name)
         return [], title
 
-    logger.info("Fetched %d caption segments from %s (%s)", len(segments), url, chosen.name)
+    logger.info(
+        "Fetched %d caption segments via yt-dlp (%s, client=%s)",
+        len(segments), chosen.name, player_client or "default",
+    )
     return segments, title
 
 
