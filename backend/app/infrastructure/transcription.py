@@ -40,26 +40,29 @@ async def _transcribe_file(path: str, offset_seconds: float = 0.0) -> list[dict]
     """Transcribe a single file and apply a timestamp offset."""
     client = _get_groq()
 
-    with open(path, "rb") as f:
-        response = client.audio.transcriptions.create(
-            model="whisper-large-v3-turbo",
-            file=f,
-            response_format="verbose_json",
-            timestamp_granularities=["segment"],
-        )
+    def _call() -> list[dict]:
+        with open(path, "rb") as f:
+            response = client.audio.transcriptions.create(
+                model="whisper-large-v3-turbo",
+                file=f,
+                response_format="verbose_json",
+                timestamp_granularities=["segment"],
+            )
+        segments = []
+        for seg in response.segments or []:
+            start = seg["start"] if isinstance(seg, dict) else seg.start
+            end = seg["end"] if isinstance(seg, dict) else seg.end
+            text = seg["text"] if isinstance(seg, dict) else seg.text
+            segments.append({
+                "start": start + offset_seconds,
+                "end": end + offset_seconds,
+                "text": text.strip(),
+            })
+        return segments
 
-    segments = []
-    for seg in response.segments or []:
-        # Groq SDK may return segment as dict or typed object depending on version
-        start = seg["start"] if isinstance(seg, dict) else seg.start
-        end = seg["end"] if isinstance(seg, dict) else seg.end
-        text = seg["text"] if isinstance(seg, dict) else seg.text
-        segments.append({
-            "start": start + offset_seconds,
-            "end": end + offset_seconds,
-            "text": text.strip(),
-        })
-    return segments
+    # Run the blocking Groq SDK call in a thread so the event loop stays free
+    # for frontend polling requests while Whisper processes audio.
+    return await asyncio.to_thread(_call)
 
 
 async def _transcribe_chunked(audio_path: str) -> list[dict]:
