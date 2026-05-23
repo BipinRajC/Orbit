@@ -15,6 +15,9 @@ async def fetch_audio(url: str) -> tuple[str, str | None]:
         (audio_file_path, video_title)
         audio_file_path is a temp file — caller is responsible for cleanup.
     """
+    import logging
+    logger = logging.getLogger("orbitos.youtube")
+
     tmp_dir = tempfile.mkdtemp(prefix="contentos_")
     output_template = os.path.join(tmp_dir, "%(id)s.%(ext)s")
 
@@ -36,10 +39,15 @@ async def fetch_audio(url: str) -> tuple[str, str | None]:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    stdout, stderr = await proc.communicate()
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300.0)
+    except asyncio.TimeoutError:
+        proc.kill()
+        raise RuntimeError("yt-dlp audio download timed out after 5 minutes")
 
     if proc.returncode != 0:
         error = stderr.decode("utf-8", errors="replace")
+        logger.warning("yt-dlp audio download failed (exit %d): %s", proc.returncode, error[:500])
         raise RuntimeError(f"yt-dlp failed: {error[:500]}")
 
     title = stdout.decode("utf-8", errors="replace").strip().splitlines()[-1] if stdout else None
@@ -60,6 +68,9 @@ async def fetch_transcript_from_youtube(url: str) -> tuple[list[dict], str | Non
     Returns:
         (segments, title)  — segments is [] if no auto-captions available.
     """
+    import logging
+    logger = logging.getLogger("orbitos.youtube")
+
     tmp_dir = tempfile.mkdtemp(prefix="contentos_captions_")
     output_template = os.path.join(tmp_dir, "%(id)s")
 
@@ -82,12 +93,23 @@ async def fetch_transcript_from_youtube(url: str) -> tuple[list[dict], str | Non
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    stdout, stderr = await proc.communicate()
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=60.0)
+    except asyncio.TimeoutError:
+        proc.kill()
+        logger.warning("yt-dlp caption fetch timed out for %s — falling back to Whisper", url)
+        return [], None
+
     title = stdout.decode("utf-8", errors="replace").strip().splitlines()[-1] if stdout else None
 
     # Parse json3 subtitle file if present
     json3_files = list(Path(tmp_dir).glob("*.json3"))
     if not json3_files:
+        stderr_text = stderr.decode("utf-8", errors="replace") if stderr else ""
+        logger.info(
+            "No auto-captions found for %s (exit %d). yt-dlp stderr: %s",
+            url, proc.returncode, stderr_text[:300],
+        )
         return [], title
 
     import json

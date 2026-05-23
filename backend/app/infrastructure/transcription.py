@@ -62,7 +62,11 @@ async def _transcribe_file(path: str, offset_seconds: float = 0.0) -> list[dict]
 
     # Run the blocking Groq SDK call in a thread so the event loop stays free
     # for frontend polling requests while Whisper processes audio.
-    return await asyncio.to_thread(_call)
+    # 180s timeout: large audio can take time, but we shouldn't hang forever.
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(_call), timeout=180.0)
+    except asyncio.TimeoutError:
+        raise RuntimeError("Groq Whisper transcription timed out after 3 minutes")
 
 
 async def _transcribe_chunked(audio_path: str) -> list[dict]:
