@@ -16,6 +16,25 @@ def _extract_video_id(url: str) -> str | None:
     return m.group(1) if m else None
 
 
+def _ytdlp_auth_args() -> list[str]:
+    """Extra yt-dlp args for cookies / proxy.
+
+    YT_COOKIES_FILE: path to a Netscape-format cookies.txt exported from a
+      logged-in browser. Authenticates the request and bypasses most
+      datacenter-IP bot challenges.
+    HTTPS_PROXY / HTTP_PROXY: standard proxy env vars; yt-dlp respects
+      these automatically, but we also forward via --proxy for clarity.
+    """
+    args: list[str] = []
+    cookies_file = os.getenv("YT_COOKIES_FILE")
+    if cookies_file and os.path.exists(cookies_file):
+        args.extend(["--cookies", cookies_file])
+    proxy = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
+    if proxy:
+        args.extend(["--proxy", proxy])
+    return args
+
+
 async def fetch_audio(url: str) -> tuple[str, str | None]:
     """
     Download audio from a YouTube URL using yt-dlp.
@@ -40,6 +59,7 @@ async def fetch_audio(url: str) -> tuple[str, str | None]:
         "--print", "title",              # print title to stdout
         "--no-simulate",                 # --print implies --simulate in newer yt-dlp; override it
         "--no-check-certificate",        # corp proxy (CrowdStrike) intercepts TLS
+        *_ytdlp_auth_args(),
         url,
     ]
 
@@ -129,6 +149,12 @@ def _fetch_via_youtube_transcript_api(video_id: str) -> list[dict]:
     Uses youtube-transcript-api to fetch captions directly from YouTube's
     TimedText endpoint. Tries manual English first, then auto-generated,
     then any translatable language translated to English.
+
+    Proxy support (REQUIRED in production — YouTube blocks datacenter IPs):
+      - WEBSHARE_PROXY_USERNAME + WEBSHARE_PROXY_PASSWORD: routes through
+        Webshare residential proxies via youtube-transcript-api's built-in
+        WebshareProxyConfig (preferred — recommended by upstream).
+      - HTTPS_PROXY / HTTP_PROXY: generic proxy URL fallback.
     """
     from youtube_transcript_api import YouTubeTranscriptApi  # type: ignore
     from youtube_transcript_api._errors import (  # type: ignore
@@ -136,12 +162,39 @@ def _fetch_via_youtube_transcript_api(video_id: str) -> list[dict]:
         NoTranscriptFound,
     )
 
+    proxies = _build_proxies_dict()
+    proxy_config = _build_webshare_proxy_config()
+
+    # Support both youtube-transcript-api 0.6.x (static methods, proxies dict)
+    # and 1.x (instance methods, proxy_config object). Try the modern API
+    # first, fall back to the legacy one.
+    transcript_list = None
     try:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        if proxy_config is not None:
+            ytt_api = YouTubeTranscriptApi(proxy_config=proxy_config)
+        else:
+            ytt_api = YouTubeTranscriptApi()
+        # 1.x API
+        try:
+            transcript_list = ytt_api.list(video_id)
+        except AttributeError:
+            # 0.6.x style on the instance — unlikely but safe
+            transcript_list = YouTubeTranscriptApi.list_transcripts(
+                video_id, proxies=proxies or None,
+            )
+    except TypeError:
+        # 0.6.x: YouTubeTranscriptApi() takes no args, use static method.
+        try:
+            transcript_list = YouTubeTranscriptApi.list_transcripts(
+                video_id, proxies=proxies or None,
+            )
+        except TranscriptsDisabled:
+            return []
     except TranscriptsDisabled:
         return []
-    except Exception:
-        raise
+
+    if transcript_list is None:
+        return []
 
     # Order of preference:
     en_codes = ["en", "en-US", "en-GB", "en-CA", "en-AU", "en-IN"]
@@ -191,6 +244,42 @@ def _fetch_via_youtube_transcript_api(video_id: str) -> list[dict]:
     return segments
 
 
+def _build_proxies_dict() -> dict[str, str]:
+    """Build a requests-style proxies dict from env vars."""
+    proxies: dict[str, str] = {}
+    https_proxy = os.getenv("HTTPS_PROXY") or os.getenv("https_proxy")
+    http_proxy = os.getenv("HTTP_PROXY") or os.getenv("http_proxy")
+    if https_proxy:
+        proxies["https"] = https_proxy
+    if http_proxy:
+        proxies["http"] = http_proxy
+    return proxies
+
+
+def _build_webshare_proxy_config():
+    """Return a WebshareProxyConfig if env vars are set, else None.
+
+    Webshare residential proxies are the recommended way to bypass
+    YouTube's datacenter-IP blocks. ~$1/mo for 10 rotating IPs.
+    See https://github.com/jdepoix/youtube-transcript-api#working-around-ip-bans
+    """
+    user = os.getenv("WEBSHARE_PROXY_USERNAME")
+    pw = os.getenv("WEBSHARE_PROXY_PASSWORD")
+    if not (user and pw):
+        return None
+    try:
+        from youtube_transcript_api.proxies import WebshareProxyConfig  # type: ignore
+        return WebshareProxyConfig(proxy_username=user, proxy_password=pw)
+    except ImportError:
+        # youtube-transcript-api < 1.0 — fall back to setting HTTPS_PROXY env
+        # to the Webshare endpoint URL ourselves.
+        os.environ.setdefault(
+            "HTTPS_PROXY",
+            f"http://{user}:{pw}@p.webshare.io:80",
+        )
+        return None
+
+
 async def _fetch_title_only(url: str) -> str | None:
     """Fetch just the video title via yt-dlp (fast, no download)."""
     import logging
@@ -204,6 +293,7 @@ async def _fetch_title_only(url: str) -> str | None:
             "--print", "title",
             "--no-warnings",
             "--no-check-certificate",
+            *_ytdlp_auth_args(),
             url,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -260,6 +350,7 @@ async def _ytdlp_caption_attempt(
         "--print", "title",
         "--no-simulate",                 # --print implies --simulate; override it
         "--no-check-certificate",        # corp proxy (CrowdStrike) intercepts TLS
+        *_ytdlp_auth_args(),
         url,
     ]
     if player_client:
