@@ -150,11 +150,10 @@ def _fetch_via_youtube_transcript_api(video_id: str) -> list[dict]:
     TimedText endpoint. Tries manual English first, then auto-generated,
     then any translatable language translated to English.
 
-    Proxy support (REQUIRED in production — YouTube blocks datacenter IPs):
-      - WEBSHARE_PROXY_USERNAME + WEBSHARE_PROXY_PASSWORD: routes through
-        Webshare residential proxies via youtube-transcript-api's built-in
-        WebshareProxyConfig (preferred — recommended by upstream).
-      - HTTPS_PROXY / HTTP_PROXY: generic proxy URL fallback.
+    Authentication (REQUIRED in production — Render/cloud IPs are 429'd):
+      Set YT_COOKIES_FILE to a Netscape cookies.txt from a logged-in browser.
+      Optionally set WEBSHARE_PROXY_USERNAME + WEBSHARE_PROXY_PASSWORD for
+      residential proxy routing (more reliable long-term).
     """
     from youtube_transcript_api import YouTubeTranscriptApi  # type: ignore
     from youtube_transcript_api._errors import (  # type: ignore
@@ -164,26 +163,25 @@ def _fetch_via_youtube_transcript_api(video_id: str) -> list[dict]:
 
     proxies = _build_proxies_dict()
     proxy_config = _build_webshare_proxy_config()
+    cookies_file = os.getenv("YT_COOKIES_FILE")
 
-    # Support both youtube-transcript-api 0.6.x (static methods, proxies dict)
-    # and 1.x (instance methods, proxy_config object). Try the modern API
-    # first, fall back to the legacy one.
+    # Build constructor kwargs — only 1.x accepts these; 0.6.x will raise
+    # TypeError which we catch below.
+    ctor_kwargs: dict = {}
+    if proxy_config is not None:
+        ctor_kwargs["proxy_config"] = proxy_config
+    if cookies_file and os.path.exists(cookies_file):
+        # 1.x accepts `cookies` kwarg pointing at a Netscape cookies.txt
+        ctor_kwargs["cookies"] = cookies_file
+
     transcript_list = None
     try:
-        if proxy_config is not None:
-            ytt_api = YouTubeTranscriptApi(proxy_config=proxy_config)
-        else:
-            ytt_api = YouTubeTranscriptApi()
-        # 1.x API
-        try:
-            transcript_list = ytt_api.list(video_id)
-        except AttributeError:
-            # 0.6.x style on the instance — unlikely but safe
-            transcript_list = YouTubeTranscriptApi.list_transcripts(
-                video_id, proxies=proxies or None,
-            )
+        api = YouTubeTranscriptApi(**ctor_kwargs)
+        # list_transcripts works as an instance method in 1.x AND as a
+        # classmethod callable via an instance in 0.6.x — safe for both.
+        transcript_list = api.list_transcripts(video_id)
     except TypeError:
-        # 0.6.x: YouTubeTranscriptApi() takes no args, use static method.
+        # 0.6.x constructor accepts no kwargs → fall back to class method.
         try:
             transcript_list = YouTubeTranscriptApi.list_transcripts(
                 video_id, proxies=proxies or None,
