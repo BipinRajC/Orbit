@@ -354,12 +354,12 @@ def upload_clip(local_path: str, object_path: str) -> str:
 
     This is synchronous — wrap with asyncio.to_thread() when calling from async code.
     Uses upsert so re-processing the same moment overwrites the existing file.
+    Streams the file in chunks to avoid loading the entire MP4 into RAM.
     """
     with open(local_path, "rb") as f:
-        data = f.read()
-    _db().storage.from_("clips").upload(
-        path=object_path,
-        file=data,
-        file_options={"content-type": "video/mp4", "upsert": "true"},
-    )
+        _db().storage.from_("clips").upload(
+            path=object_path,
+            file=f,
+            file_options={"content-type": "video/mp4", "upsert": "true"},
+        )
     return _db().storage.from_("clips").get_public_url(object_path)

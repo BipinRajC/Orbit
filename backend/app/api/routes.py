@@ -425,13 +425,15 @@ async def export_clip_vertical(project_id: str, moment_id: str) -> dict:
             tmp_src = str(Path(tmp_dir) / "source.mp4")
             tmp_dst = str(Path(tmp_dir) / "vertical.mp4")
 
-            # Download source clip from CDN into a temp file for ffmpeg.
+            # Stream-download source clip from CDN directly to disk — avoids
+            # loading the entire file into RAM via resp.content.
             try:
                 async with httpx.AsyncClient(timeout=120.0) as client:
-                    resp = await client.get(clip_url)
-                    resp.raise_for_status()
-                    with open(tmp_src, "wb") as f:
-                        f.write(resp.content)
+                    async with client.stream("GET", clip_url) as resp:
+                        resp.raise_for_status()
+                        with open(tmp_src, "wb") as f:
+                            async for chunk in resp.aiter_bytes(chunk_size=8 * 1024 * 1024):
+                                f.write(chunk)
             except Exception as exc:
                 raise HTTPException(status_code=502, detail=f"Failed to fetch source clip: {exc}")
 

@@ -265,17 +265,28 @@ async def extract_clips_parallel(
     moments: list[dict[str, Any]],
 ) -> dict[str, str | None]:
     """
-    Extract clips for all moments in parallel.
-    Returns dict mapping moment_id → clip_path (or None on failure).
+    Extract clips for all moments with bounded concurrency.
+    Max 3 simultaneous extractions to stay within Render's memory limit.
+    Returns dict mapping moment_id → clip URL (or None on failure).
     """
+    semaphore = asyncio.Semaphore(3)
+
+    async def _bounded(moment_id: str, coro: Any) -> str | None:
+        async with semaphore:
+            result = await coro
+            return result if isinstance(result, (str, type(None))) else None
+
     tasks = {
-        m["id"]: extract_clip(
-            project_id=project_id,
-            moment_id=m["id"],
-            source_url=source_url,
-            segments=m.get("segments") or [
-                {"start": m["start_timestamp"], "end": m["end_timestamp"], "role": "primary"}
-            ],
+        m["id"]: _bounded(
+            m["id"],
+            extract_clip(
+                project_id=project_id,
+                moment_id=m["id"],
+                source_url=source_url,
+                segments=m.get("segments") or [
+                    {"start": m["start_timestamp"], "end": m["end_timestamp"], "role": "primary"}
+                ],
+            ),
         )
         for m in moments
     }
